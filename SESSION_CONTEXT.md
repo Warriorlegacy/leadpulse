@@ -12,7 +12,7 @@
 | Development | Complete for MVP scope. All phases A–K complete; L complete except buyer validation. No code work in progress. |
 | Deployment | **Live and re-verified.** Homepage `200` / 632 bytes with `<div id="root">`; `/api/v1/health` `200` → `{"status":"ok","version":"0.1.0","database":{"driver":"node:sqlite","file":"leadpulse.db","durable":true,"migrations":[1]},"demoEnabled":true}` at `2026-11-12T20:21:31Z` |
 | Live URL | https://wbapp-fg7bnl5o2kwfvsenkc0fkh.apps.workbuddy.host/?sharecode=N2EQKU23CQ |
-| Repository | `D:/SaaS/leadpulse`, branch `main`, HEAD `4435961b33baa3f88ace552d63db2bdd250ef365`, **clean working tree**, 64 tracked files |
+| Repository | `D:/SaaS/leadpulse`, branch `main`, HEAD = current tip (`git rev-parse HEAD`), **clean working tree**, 64 tracked files |
 | Quality gates | `npx vitest run` 33/33 passed · `npx tsc --noEmit` clean · `npx vite build` clean · local + live HTTP smoke tests passed |
 | Documentation | `README.md`, `SESSION_CONTEXT.md` (this file), `CHANGELOG.md`, `.env.example`, 16 files in `docs/`, `.github/workflows/ci.yml` |
 | Session context | Written **after** the last code change, the last test run, and the live deployment verification — not a mid-session draft |
