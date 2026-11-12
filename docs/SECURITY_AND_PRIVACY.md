@@ -49,6 +49,7 @@ Describes controls actually implemented in `server/*.js`. This is **not** a comp
 7. **No legal/privacy review.** No GDPR/DPDP/CCPA certification, DPA, data-residency commitment, consent-management workflow or breach procedure. Do not load real customer PII until reviewed.
 8. **Free-tier quotas change.** Re-verify before making any hosting claim ([FREE_STACK_AUDIT.md](FREE_STACK_AUDIT.md)).
 9. **No automated browser/accessibility audit yet.** Keyboard operability is implemented (kanban arrow buttons, focus-visible, labels, table view) but not verified by Playwright/axe. See [TEST_RESULTS.md](TEST_RESULTS.md).
+10. **Hosting proxy weakens clickjacking protection (verified 2026-11-13).** The app sets `X-Frame-Options: DENY` and CSP `frame-ancestors 'none'`; on the WorkBuddy hosted URL the proxy removes `X-Frame-Options` and rewrites CSP to `frame-ancestors 'none' *`. Other security headers pass through. Use a domain/proxy that preserves these headers for any customer-facing deployment. See [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ## 5. Related
 

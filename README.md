@@ -8,6 +8,8 @@ LeadPulse is deliberately narrow. It is not an attempt to replace HubSpot or Sal
 
 **This is a working application, not a mockup.** It has a real relational database, server-enforced authentication and tenancy, a validated API, automated tests, and a full responsive UI. Every dashboard number is computed from persisted records.
 
+**Live demo:** https://wbapp-fg7bnl5o2kwfvsenkc0fkh.apps.workbuddy.host/?sharecode=N2EQKU23CQ — verified working on 2026-11-13. Full runbook: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
 ---
 
 ## Quick start
