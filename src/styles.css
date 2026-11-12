@@ -7,11 +7,12 @@
   --ink: #12202f;
   --ink-2: #1f2d3d;
   --text: #1a2430;
-  --muted: #69737f;
+  --muted: #5f6873;
   --line: #e3ded4;
   --line-strong: #d3ccbf;
+  /* Muted text on the dark sidebar must reach 4.5:1 on #12202f. */
   --accent: #e09a2b;
-  --accent-dark: #b9771a;
+  --accent-dark: #8a5a10;
   --accent-soft: #fbf1df;
   --danger: #b42318;
   --danger-soft: #fbeae7;
@@ -45,6 +46,10 @@ p { margin: 0; }
 a { color: inherit; text-decoration: none; }
 button, input, select, textarea { font: inherit; color: inherit; }
 :focus-visible { outline: 2px solid var(--accent-dark); outline-offset: 2px; }
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
 
 /* ------------------------------------------------------------------ buttons */
 .btn {
@@ -149,7 +154,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .brand-name { font-family: var(--serif); font-size: 19px; color: #fff; line-height: 1; }
 .brand-sub { font-size: 10px; color: #8fa0b0; letter-spacing: .09em; text-transform: uppercase; }
 .sidebar-nav { padding: 14px 10px; display: flex; flex-direction: column; gap: 2px; overflow-y: auto; flex: 1; }
-.nav-label { padding: 12px 10px 6px; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: #728698; }
+.nav-label { padding: 12px 10px 6px; font-size: 10px; letter-spacing: .1em; text-transform: uppercase;  color: #7d8fa1; }
 .nav-item { display: flex; align-items: center; gap: 11px; padding: 9px 11px; border-radius: var(--radius-sm); font-size: 13px; color: #c4d0dc; cursor: pointer; border: 1px solid transparent; }
 .nav-item:hover { background: rgba(255, 255, 255, .07); color: #fff; }
 .nav-item.active { background: rgba(224, 154, 43, .14); color: #ffd68f; border-color: rgba(224, 154, 43, .25); }
@@ -222,10 +227,11 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .kanban-head strong { font-size: 12.5px; font-weight: 600; }
 .kanban-head .count { margin-left: auto; font-size: 11px; color: var(--muted); background: #fff; border: 1px solid var(--line); padding: 0 7px; border-radius: 9px; }
 .kanban-body { padding: 8px; display: flex; flex-direction: column; gap: 8px; min-height: 90px; }
-.lead-card { background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--radius-sm); padding: 10px 11px; cursor: pointer; box-shadow: 0 1px 2px rgba(18, 32, 47, .04); }
+.lead-card { position: relative; background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--radius-sm); padding: 10px 11px; cursor: pointer; box-shadow: 0 1px 2px rgba(18, 32, 47, .04); }
 .lead-card:hover { border-color: var(--accent-dark); }
 .lead-card.dragging { opacity: .5; }
-.lead-card strong { display: block; font-size: 13px; color: var(--ink); font-weight: 600; }
+.lead-card strong, .lead-card .card-title { display: block; font-size: 13px; color: var(--ink); font-weight: 600; }
+.lead-card .card-title:hover { color: var(--accent-dark); }
 .lead-card .cell-sub { margin-top: 2px; }
 .lead-card-foot { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 9px; }
 .move-row { display: flex; gap: 4px; margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--line); }

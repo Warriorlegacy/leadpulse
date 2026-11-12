@@ -136,7 +136,7 @@ export function LeadsPage() {
             </div>
             <div className="mobile-cards">
               {data.items.map((l) => (
-                <button key={l.id} className="lead-card" style={{ width: '100%', textAlign: 'left', margin: '10px 12px' }}
+                <button key={l.id} className="lead-card" style={{ width: 'calc(100% - 24px)', textAlign: 'left', margin: '10px 12px' }}
                   onClick={() => navigate(`/app/leads/${l.id}`)}>
                   <strong>{l.name}</strong>
                   <div className="cell-sub">{l.company || l.email}</div>

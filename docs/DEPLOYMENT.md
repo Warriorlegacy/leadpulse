@@ -11,7 +11,7 @@
 | Verification time | **2026-11-13 01:33–01:35 IST (2026-11-12 20:03–20:05 UTC)** |
 | Deploy result | `verified: true`, `deployedAs: http-service` |
 | Runtime reported by `/health` | `node:sqlite`, `leadpulse.db`, `durable: true`, migration v1 |
-| Repository | Local git repo `D:/SaaS/leadpulse`, branch `main`; first commit `0740ce2517065af935ef917b7a67ea35063e220e`, HEAD = `git rev-parse HEAD` |
+| Repository | Local git repo `D:/SaaS/leadpulse`, branch `master`; first commit `0740ce2517065af935ef917b7a67ea35063e220e`, HEAD = `git rev-parse HEAD` |
 | Remote | **None** — no GitHub repository URL was supplied; nothing was pushed |
 
 ### Deployment parameters used
@@ -47,6 +47,10 @@ domainPrefix= leadpulse-crm
 | Security headers | CSP, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`, HSTS, `X-Request-Id` present |
 
 The two smoke-test leads were then archived via the API, returning the public demo to 12 active leads.
+
+### Current build status (2026-11-13 04:40 IST)
+
+The URL is still reachable (`200`, health OK, `durable: true`) but serves asset `assets/index-B9OqksUm.js`, i.e. the build from **before** the browser-test and accessibility fixes. The current local build is `assets/index-DU1C2JTF.js`. **It has not been republished** — no App Publishing tool or credential is available outside the WorkBuddy client. Republish before describing the accessibility fixes as live. The `?sharecode=` parameter is required; without it the host returns `403`.
 
 ### Deployment finding: clickjacking header is modified upstream
 

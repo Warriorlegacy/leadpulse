@@ -61,6 +61,7 @@ All seeded names, `example.com/org/net` addresses and `+1555…` phone numbers a
 | `npm run build` | Vite production build into `public/` |
 | `npm run typecheck` | `tsc --noEmit` over `src/**/*.ts(x)` |
 | `npm test` | Vitest unit + API integration suites |
+| `npm run test:e2e` | Build, then Playwright + axe browser tests in Chromium |
 | `npm run check` | Typecheck, tests, build |
 
 ## Architecture snapshot
@@ -93,11 +94,12 @@ Copy `.env.example` to `.env`. All values are placeholders; no real secret is co
 ## Verification
 
 - `npx vitest run` → **33 passed / 0 failed** (13 unit + 20 API integration tests against a real SQLite DB).
+- `npm run test:e2e` → **15 passed / 0 failed** (Playwright/Chromium against the production build: 375/768/1280 px layout, mobile drawer, keyboard kanban, rejected transition, focus visibility, console hygiene, and axe WCAG 2.1 A/AA with zero violations on 11 routes).
 - `npx tsc --noEmit` → clean.
 - `npx vite build` → clean; ~83 kB gzipped JS, ~5 kB gzipped CSS.
 - Full local HTTP smoke test of built assets, auth, leads, pipeline, reports, capture, export, audit and security headers.
 
-Details and **known gaps** (no Playwright/axe run, no load/penetration test, fallback DB drivers not exercised): [docs/TEST_RESULTS.md](docs/TEST_RESULTS.md).
+Details and **known gaps** (Chromium-only browser matrix, no load/penetration test, fallback DB drivers not exercised): [docs/TEST_RESULTS.md](docs/TEST_RESULTS.md).
 
 ## What is deliberately NOT in this build
 

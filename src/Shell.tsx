@@ -111,7 +111,7 @@ export function Shell() {
           <h2>{title}</h2>
           <span className="topbar-sub">{org?.timezone || 'UTC'}</span>
           <div className="topbar-actions">
-            <NavLink to="/app/tasks" className="btn btn-small" aria-label="Follow-ups and notifications">
+            <NavLink to="/app/tasks" className="btn btn-small">
               <Icon name="clock" size={15} /> Follow-ups
               {notifications?.unread ? <span className="badge badge-amber">{notifications.unread}</span> : null}
             </NavLink>

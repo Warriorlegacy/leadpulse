@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { api, ApiError, relative, type Lead, type Stage } from '../api';
 import { Badge, Empty, ErrorNotice, Icon, Spinner, useApi, useToast } from '../ui';
 
@@ -67,9 +67,10 @@ export function PipelinePage() {
                 {col.leads.map((lead) => (
                   <div key={lead.id} className={`lead-card ${busyId === lead.id ? 'dragging' : ''}`}
                     draggable={!busyId} onDragStart={() => setDragId(lead.id)} onDragEnd={() => { setDragId(null); setOverStage(null); }}
-                    onClick={() => navigate(`/app/leads/${lead.id}`)} role="button" tabIndex={0}
-                    onKeyDown={(e) => { if (e.key === 'Enter') navigate(`/app/leads/${lead.id}`); }}>
-                    <strong>{lead.name}</strong>
+                    onClick={() => navigate(`/app/leads/${lead.id}`)}>
+                    {/* The title is the keyboard target; the card itself is not a button, so
+                        move controls are never nested inside another interactive element. */}
+                    <Link to={`/app/leads/${lead.id}`} className="card-title" onClick={(e) => e.stopPropagation()}>{lead.name}</Link>
                     <div className="cell-sub">{lead.company || lead.email || lead.phone}</div>
                     <div className="lead-card-foot">
                       <Badge tone={lead.priority === 'urgent' ? 'red' : lead.priority === 'high' ? 'amber' : 'neutral'}>{lead.priority}</Badge>
@@ -77,11 +78,15 @@ export function PipelinePage() {
                     </div>
                     <div className="move-row" onClick={(e) => e.stopPropagation()}>
                       <button className="move-btn" disabled={colIndex === 0 || Boolean(busyId)}
-                        onClick={() => void move(lead.id, data.columns[colIndex - 1].stage.id)}
-                        aria-label={`Move ${lead.name} to ${data.columns[colIndex - 1]?.stage.name || 'previous stage'}`}>← Prev</button>
+                        onClick={() => void move(lead.id, data.columns[colIndex - 1].stage.id)}>
+                        <span aria-hidden="true">← Prev</span>
+                        <span className="sr-only">Move {lead.name} to {data.columns[colIndex - 1]?.stage.name || 'previous stage'}</span>
+                      </button>
                       <button className="move-btn" disabled={colIndex === data.columns.length - 1 || Boolean(busyId)}
-                        onClick={() => void move(lead.id, data.columns[colIndex + 1].stage.id)}
-                        aria-label={`Move ${lead.name} to ${data.columns[colIndex + 1]?.stage.name || 'next stage'}`}>Next →</button>
+                        onClick={() => void move(lead.id, data.columns[colIndex + 1].stage.id)}>
+                        <span aria-hidden="true">Next →</span>
+                        <span className="sr-only">Move {lead.name} to {data.columns[colIndex + 1]?.stage.name || 'next stage'}</span>
+                      </button>
                     </div>
                   </div>
                 ))}

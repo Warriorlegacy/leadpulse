@@ -1,6 +1,6 @@
 # LeadPulse — Test Results
 
-Executed on **12–13 November 2026** on Windows (Node v22.22.2, npm 10.9.7). All figures below are from commands actually run; no result is inferred.
+Executed on **12–13 November 2026** on Windows (Node v22.23.1, npm 10.9.8). All figures below are from commands actually run; no result is inferred.
 
 ## 1. Automated suite
 
@@ -32,15 +32,52 @@ Coverage by group:
 
 Integration tests use `app.request()` against the real Hono app with a real temporary SQLite database, cookie jar and CSRF token — not mocks.
 
+### 1b. Browser acceptance suite (Playwright + axe)
+
+```
+npm run test:e2e        # vite build && playwright test
+```
+
+Runs the **production build** served by `server/index.js` on port 3210 against a throwaway `data/e2e` database. Chromium (Playwright 1.5x) is the only browser project; the demo owner session is created once in a setup project and reused.
+
+Final run (2026-11-13):
+
+```
+Running 15 tests using 1 worker
+  ✓ [setup] sign in as the demo owner
+  ✓ public pages have no WCAG A/AA violations
+  ✓ the authenticated app has no WCAG A/AA violations
+  ✓ the app has no WCAG A/AA violations at 375px
+  ✓ no console errors or page exceptions across every route
+  ✓ mobile 375px / tablet 768px / desktop 1280px: no horizontal page overflow
+  ✓ mobile navigation collapses into a toggle that opens the sidebar
+  ✓ desktop shows the sidebar without the mobile toggle
+  ✓ the public capture form is usable at 375px
+  ✓ keyboard focus is always visible
+  ✓ kanban cards move with the keyboard and persist
+  ✓ a rejected transition leaves the card in its column
+  ✓ the pipeline table alternative is keyboard navigable
+  15 passed (26.0s)
+```
+
+What the suite actually asserts:
+
+- **axe-core** (tags `wcag2a`, `wcag2aa`, `wcag21a`, `wcag21aa`) reports **zero violations** on `/`, `/pricing`, `/login`, and `/app`, `/app/leads`, `/app/pipeline`, `/app/tasks`, `/app/reports`, `/app/data`, `/app/team`, `/app/settings`, plus the three main app routes at 375 px.
+- No `console.error` or uncaught page exception on any public or authenticated route.
+- `documentElement.scrollWidth` never exceeds the viewport by more than 1 px at 375/768/1280 px, so tables and the kanban scroll inside their own containers.
+- The mobile drawer opens, navigates and closes itself; at 1280 px the drawer toggle is hidden.
+- Every one of the first eight Tab stops has a visible focus indicator (outline ≥ 2 px or box-shadow).
+- A kanban card moves with Enter on its Next/Prev control, the success toast appears, and the move persists; an intercepted 409 leaves the card in its original column (this now covers **T06** in a browser, previously manual code review only).
+
 ## 2. Typecheck and build
 
 ```
 npx tsc --noEmit       -> exit 0, no diagnostics
 npx vite build         -> exit 0
 public/index.html                   0.63 kB │ gzip:  0.36 kB
-public/assets/index-*.css          20.52 kB │ gzip:  4.95 kB
-public/assets/index-*.js          279.75 kB │ gzip: 82.64 kB
-✓ 47 modules transformed, built in 2.20s
+public/assets/index-*.css          20.75 kB │ gzip:  5.01 kB
+public/assets/index-*.js          280.06 kB │ gzip: 82.68 kB
+✓ 47 modules transformed, built in ~1.1s
 ```
 
 ## 3. Local HTTP smoke test (built assets + live server)
@@ -102,15 +139,20 @@ The two smoke-test leads were archived afterwards via the API, restoring the pub
 | 3 | Async-loaded capture-form settings used uncontrolled inputs that never refreshed | Inputs keyed on the loaded form id | Typecheck + build pass |
 | 4 | Vite warned about a dynamic import of an already-static module in `ui.tsx` | Replaced with a static import | Build clean, 47 modules |
 | 5 | Speculative technical docs named routes and columns that do not exist | Rewrote `API.md`, `DATA_DICTIONARY.md`, `METRIC_DEFINITIONS.md`, `PERMISSION_MATRIX.md`, `SECURITY_AND_PRIVACY.md`, `TEST_PLAN.md` against the code | Docs reviewed against `server/schema.sql` and `server/routes/*` |
+| 6 | Pressing Enter on a kanban **move button** also bubbled to the card's Enter handler and navigated to the lead detail before the move could run | Card navigation only fires when the key event target is the card itself; the card is no longer a `role="button"` wrapper around focusable controls | Browser test: keyboard move persists and shows the toast |
+| 7 | Lead cards on mobile were `width: 100%` **plus** 24 px of side margins, producing a 7 px horizontal page overflow at 375/768 px | Width changed to `calc(100% - 24px)` | 0 px page overflow at 375/768/1280 px |
+| 8 | Three colour tokens failed WCAG AA: `.eyebrow` 3.37:1, muted body text 4.42:1, sidebar labels 4.38:1, accent links 3.67:1 | `--accent-dark` → `#8a5a10`, `--muted` → `#5f6873`, sidebar labels → `#7d8fa1` | axe reports zero contrast violations |
+| 9 | Kanban move buttons had `aria-label` text that excluded their visible label; the Settings copy-link button had no accessible name at all | Move buttons use visually-hidden descriptive text; copy button gained `aria-label` | axe reports zero violations |
 
 ## 6. Not verified / known gaps
 
-- No Playwright or axe run: keyboard, mobile-width and accessibility behaviour are implemented but **not browser-automated**. No visual regression screenshots.
+- Browser automation covers **Chromium only**. Firefox/WebKit and real iOS/Android devices are not exercised. No visual-regression screenshots.
 - No load testing, penetration test, or cross-browser matrix.
+- The Playwright job has not run on GitHub Actions (no remote repository); it passes locally with `npm run test:e2e`.
 - The `sql.js` WASM fallback and the in-memory read-only-sandbox driver were not exercised end to end.
 - No automated test of process-restart durability with WAL, nor of concurrent writers.
 - Cloudflare Workers/D1 deployment not attempted: no account credentials (see [DEPLOYMENT.md](DEPLOYMENT.md)).
-- GitHub Actions CI has never run (no remote repository). The workflow file is provided but unverified.
+- GitHub Actions CI has never run (no remote repository). Both the `verify` and `browser` workflow jobs are provided but unverified in CI.
 - The live deployment IS verified — see §4 above and [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ## 7. Related

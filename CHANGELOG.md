@@ -2,6 +2,23 @@
 
 All notable changes to LeadPulse. Dates are in IST (UTC+05:30).
 
+## [Unreleased] — 2026-11-13
+
+Browser acceptance coverage (T12) and the accessibility defects it exposed.
+
+### Added
+- Playwright test suite (`tests/e2e/`, `npm run test:e2e`) running the production build in Chromium: mobile 375 / tablet 768 / desktop 1280 layout, mobile drawer, keyboard focus visibility, keyboard kanban moves, a rejected transition (T06), the pipeline table selector, and a console-error sweep over every route.
+- axe-core WCAG 2.1 A/AA scans with **zero violations** on `/`, `/pricing`, `/login` and eight authenticated routes, plus `/app`, `/app/leads` and `/app/pipeline` at 375 px.
+- A `browser` CI job (Chromium install, e2e run, report artifact on failure).
+- `docs/CLOUDFLARE_STACK.md`: verified free-tier audit and migration kit for Pages/Workers/D1/R2, including the `node:sqlite` stub and 10 ms CPU findings.
+
+### Fixed
+- Enter on a kanban move button bubbled into the card's handler and navigated away before the move ran; card navigation is now limited to the card itself and the card is no longer a `role="button"` wrapper around focusable controls.
+- Kanban move buttons had accessible names that excluded their visible text; the Settings copy-link button had no accessible name.
+- Lead cards overflowed the viewport by 7 px at 375/768 px because of `width: 100%` plus side margins.
+- Four colour tokens missed WCAG AA contrast (eyebrow, muted body text, sidebar labels, accent links); `--accent-dark`, `--muted` and the sidebar label colour were darkened.
+- Screen-reader-only kanban text could extend the root scroll width; lead cards now establish the containing block.
+
 ## [0.1.0] — 2026-11-13
 
 First working build. Created from the LeadPulse production build brief and the Universal Autonomous SaaS Builder specification. **Status: pilot / demo — not validated with real buyers and not hardened for real customer PII.**

@@ -313,7 +313,7 @@ export function SettingsPage() {
           <div className="card-body stack" style={{ gap: 14 }}>
             <Field label="Public link" htmlFor="s-public" hint="Share this link to collect enquiries into this workspace. It exposes no lead data or internal IDs.">
               <div className="row"><input id="s-public" className="input mono" readOnly value={capture.data?.form.publicUrl || ''} onFocus={(e) => e.target.select()} style={{ flex: 1 }} />
-                <button className="btn" onClick={() => { void navigator.clipboard.writeText(capture.data?.form.publicUrl || ''); toast('Link copied.', 'success'); }}><Icon name="copy" size={15} /></button>
+                <button className="btn" aria-label="Copy capture form link" title="Copy capture form link" onClick={() => { void navigator.clipboard.writeText(capture.data?.form.publicUrl || ''); toast('Link copied.', 'success'); }}><Icon name="copy" size={15} /></button>
                 <a className="btn" href={capture.data?.form.publicUrl || '#'} target="_blank" rel="noreferrer">Open</a></div>
             </Field>
             {/* Keyed on the loaded form id so async data replaces the initial empty value. */}
