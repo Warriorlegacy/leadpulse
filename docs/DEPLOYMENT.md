@@ -11,7 +11,7 @@
 | Verification time | **2026-11-13 01:33–01:35 IST (2026-11-12 20:03–20:05 UTC)** |
 | Deploy result | `verified: true`, `deployedAs: http-service` |
 | Runtime reported by `/health` | `node:sqlite`, `leadpulse.db`, `durable: true`, migration v1 |
-| Repository | Local git repo `D:/SaaS/leadpulse`, branch `main`, commit `0740ce2517065af935ef917b7a67ea35063e220e` |
+| Repository | Local git repo `D:/SaaS/leadpulse`, branch `main`, HEAD commit `ffc98ba3bf74e36191bb21c2067f1eba0d4cb6c0` |
 | Remote | **None** — no GitHub repository URL was supplied; nothing was pushed |
 
 ### Deployment parameters used
