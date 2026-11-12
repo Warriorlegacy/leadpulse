@@ -1,6 +1,23 @@
 # SESSION_CONTEXT.md — LeadPulse
 
-**Last updated:** 2026-11-13 01:36 IST (2026-11-12 20:06 UTC). Read this first at the start of every new session, then verify important claims against the repository.
+**FINAL HANDOFF — written at the end of development and deployment.**
+**Last updated:** 2026-11-13 01:51 IST (2026-11-12 20:21 UTC). Read this first at the start of every new session, then verify important claims against the repository.
+
+---
+
+## 0. Final state at end of development & deployment (verified 2026-11-13 01:51 IST)
+
+| Check | Verified result |
+| --- | --- |
+| Development | Complete for MVP scope. All phases A–K complete; L complete except buyer validation. No code work in progress. |
+| Deployment | **Live and re-verified.** Homepage `200` / 632 bytes with `<div id="root">`; `/api/v1/health` `200` → `{"status":"ok","version":"0.1.0","database":{"driver":"node:sqlite","file":"leadpulse.db","durable":true,"migrations":[1]},"demoEnabled":true}` at `2026-11-12T20:21:31Z` |
+| Live URL | https://wbapp-fg7bnl5o2kwfvsenkc0fkh.apps.workbuddy.host/?sharecode=N2EQKU23CQ |
+| Repository | `D:/SaaS/leadpulse`, branch `main`, HEAD `4435961b33baa3f88ace552d63db2bdd250ef365`, **clean working tree**, 64 tracked files |
+| Quality gates | `npx vitest run` 33/33 passed · `npx tsc --noEmit` clean · `npx vite build` clean · local + live HTTP smoke tests passed |
+| Documentation | `README.md`, `SESSION_CONTEXT.md` (this file), `CHANGELOG.md`, `.env.example`, 16 files in `docs/`, `.github/workflows/ci.yml` |
+| Session context | Written **after** the last code change, the last test run, and the live deployment verification — not a mid-session draft |
+
+**Explicitly not done (no false claims):** Cloudflare Workers/D1 deployment (no credentials), GitHub remote/push (no URL supplied), Playwright/axe browser automation, load/penetration testing, buyer interviews, legal/privacy review, any paid or external provider activation.
 
 ---
 
@@ -22,6 +39,7 @@
 - **URL:** https://wbapp-fg7bnl5o2kwfvsenkc0fkh.apps.workbuddy.host/?sharecode=N2EQKU23CQ
 - Provider: WorkBuddy App Publishing (sites), `http-service`, sandbox `6a2e6a95f934402ba26c73e197b3e533`. `verified: true`.
 - Verified 2026-11-13 01:33–01:35 IST: homepage, JS asset, health, 401 on anonymous API, demo login, lead list (12), reports, pipeline, lead creation (12→13), capture form POST, CSV export, security headers. Smoke-test leads were archived afterwards, returning the demo to 12 active leads.
+- **Final recheck 2026-11-13 01:51 IST:** homepage still `200` with the SPA root, `/api/v1/health` still `200` with durable `node:sqlite` and migration v1. No redeploy was needed after the documentation commits.
 - **Not** a Cloudflare deployment. No CF credentials exist. See `docs/DEPLOYMENT.md` §6 for the exact migration path.
 - Known platform finding: the hosting proxy strips `X-Frame-Options` and appends `*` to CSP `frame-ancestors`. Documented in `docs/DEPLOYMENT.md` and `docs/SECURITY_AND_PRIVACY.md`.
 
