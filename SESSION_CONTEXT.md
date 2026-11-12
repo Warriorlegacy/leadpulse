@@ -14,7 +14,7 @@
 ## 2. Repository and branch
 
 - Local git repo initialised at `D:/SaaS/leadpulse`; branch `main`.
-- **HEAD commit:** `ffc98ba3bf74e36191bb21c2067f1eba0d4cb6c0` — "Document verified production deployment, live smoke test and session handoff" (2026-11-13 01:45 IST). First commit: `0740ce2517065af935ef917b7a67ea35063e220e`. 64 tracked files, clean working tree.
+- **Version control:** branch `main`, clean working tree, 64 tracked files. First commit `0740ce2517065af935ef917b7a67ea35063e220e`; HEAD is the current tip (`git rev-parse HEAD`). No hash is hardcoded here so this file does not become stale on the next commit.
 - **Remote: none.** No GitHub URL was supplied by the user, so nothing was pushed. `.github/workflows/ci.yml` exists but has never run on GitHub Actions.
 
 ## 3. Live deployment
