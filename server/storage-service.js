@@ -5,7 +5,14 @@ import { fileURLToPath } from 'node:url';
 import { one, all, run, tx } from './context.js';
 import { uid, nowIso } from './util.js';
 
-const here = path.dirname(fileURLToPath(import.meta.url));
+const here = (() => {
+  try {
+    if (typeof import.meta !== 'undefined' && import.meta?.url && import.meta.url.startsWith('file:')) {
+      return path.dirname(fileURLToPath(import.meta.url));
+    }
+  } catch { /* ignored */ }
+  try { return process.cwd ? process.cwd() : '/'; } catch { return '/'; }
+})();
 const root = path.resolve(here, '..');
 
 const ALLOWED_MIME_TYPES = new Set([

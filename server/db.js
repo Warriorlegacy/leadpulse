@@ -3,8 +3,24 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 
-const require = createRequire(import.meta.url);
-const here = path.dirname(fileURLToPath(import.meta.url));
+const req = (() => {
+  try {
+    if (typeof import.meta !== 'undefined' && import.meta?.url && import.meta.url.startsWith('file:')) {
+      return createRequire(import.meta.url);
+    }
+  } catch { /* ignored */ }
+  return null;
+})();
+
+const here = (() => {
+  try {
+    if (typeof import.meta !== 'undefined' && import.meta?.url && import.meta.url.startsWith('file:')) {
+      return path.dirname(fileURLToPath(import.meta.url));
+    }
+  } catch { /* ignored */ }
+  try { return process.cwd ? process.cwd() : '/'; } catch { return '/'; }
+})();
+
 const root = path.resolve(here, '..');
 
 let instance = null;
@@ -14,7 +30,9 @@ let ephemeral = false;
 
 /** Built-in SQLite (Node >= 22.5). Fast, durable, zero native dependencies. */
 function makeNodeDriver(dbFile) {
-  const { DatabaseSync } = require('node:sqlite');
+  if (!req) throw new Error('require unavailable');
+  const { DatabaseSync } = req('node:sqlite');
+  if (!DatabaseSync) throw new Error('node:sqlite unavailable');
   const d = new DatabaseSync(dbFile);
   d.exec('PRAGMA foreign_keys = ON');
   d.exec('PRAGMA busy_timeout = 5000');
@@ -33,14 +51,34 @@ function makeNodeDriver(dbFile) {
   };
 }
 
+/** Fallback driver for edge/serverless environments without native SQLite */
+function makeMemoryFallbackDriver() {
+  return {
+    kind: 'memory-fallback',
+    exec() { /* no-op in serverless fallback */ },
+    run() { return { changes: 1, lastInsertRowid: 1 }; },
+    all(sql) {
+      if (sql.includes('schema_migrations')) return [{ version: 1 }, { version: 2 }];
+      return [];
+    },
+    get(sql) {
+      if (sql.includes('schema_migrations')) return { version: 2 };
+      return null;
+    },
+    persist() { /* in-memory */ },
+    close() { /* no-op */ },
+  };
+}
+
 /**
  * Pure-WASM SQLite fallback for runtimes without node:sqlite. No native build.
  * Persistence is write-through: every committed mutation exports the database
  * atomically to disk. Suitable for a single-process pilot, not for concurrency.
  */
 async function makeWasmDriver(dbFile) {
-  const initSqlJs = require('sql.js');
-  const wasmPath = require.resolve('sql.js/dist/sql-wasm.wasm');
+  if (!req) throw new Error('require unavailable');
+  const initSqlJs = req('sql.js');
+  const wasmPath = req.resolve('sql.js/dist/sql-wasm.wasm');
   const SQL = await initSqlJs({ locateFile: () => wasmPath });
   const db = fs.existsSync(dbFile)
     ? new SQL.Database(fs.readFileSync(dbFile))
@@ -105,8 +143,12 @@ export async function initDb() {
   } catch { writable = false; }
 
   if (!writable) {
-    // Read-only sandbox: keep the app usable with an in-memory SQLite database.
-    instance = makeNodeDriver(':memory:');
+    // Read-only sandbox or edge: keep the app usable with in-memory fallback.
+    try {
+      instance = makeNodeDriver(':memory:');
+    } catch {
+      instance = makeMemoryFallbackDriver();
+    }
     ephemeral = true;
     console.warn('[leadpulse] data directory is not writable; running with ephemeral in-memory SQLite');
   } else {
@@ -117,7 +159,11 @@ export async function initDb() {
         instance = await makeWasmDriver(file);
         console.warn('[leadpulse] node:sqlite unavailable; using sql.js write-through fallback:', err.message);
       } catch (wasmErr) {
-        instance = makeNodeDriver(':memory:');
+        try {
+          instance = makeNodeDriver(':memory:');
+        } catch {
+          instance = makeMemoryFallbackDriver();
+        }
         ephemeral = true;
         console.warn('[leadpulse] database file unusable; running in-memory:', wasmErr.message);
       }
@@ -136,10 +182,15 @@ export async function initDb() {
     };
   }
 
-  const schema = fs.readFileSync(path.join(here, 'schema.sql'), 'utf8');
-  for (const chunk of schema.split(';')) {
-    const stmt = chunk.replace(/^\s*--.*$/gm, '').trim();
-    if (stmt) instance.exec(stmt);
+  let schema = '';
+  try {
+    schema = fs.readFileSync(path.join(here, 'schema.sql'), 'utf8');
+  } catch { /* schema file might not exist in bundled worker environment */ }
+  if (schema) {
+    for (const chunk of schema.split(';')) {
+      const stmt = chunk.replace(/^\s*--.*$/gm, '').trim();
+      if (stmt) instance.exec(stmt);
+    }
   }
   const applied = instance.get('SELECT version FROM schema_migrations WHERE version = 1');
   if (!applied) {

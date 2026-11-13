@@ -3,7 +3,16 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const here = (() => {
+  try {
+    if (typeof import.meta !== 'undefined' && import.meta?.url && import.meta.url.startsWith('file:')) {
+      return path.dirname(fileURLToPath(import.meta.url));
+    }
+  } catch { /* ignored */ }
+  try { return process.cwd ? process.cwd() : '/'; } catch { return '/'; }
+})();
+
+const root = path.resolve(here, '..');
 
 /**
  * HMAC verification requires the original shared secret, so webhook secrets are
