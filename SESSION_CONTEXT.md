@@ -11,12 +11,16 @@
 | Check | Verified result |
 | --- | --- |
 | Development | Production features implemented: AI engine (Gemini/Groq), password recovery & email adapter, document attachments, Cloudflare dual runtime. |
+| Cloudflare Setup | All 22 skills installed, Cloudflare MCP configured, `cf` CLI installed, Wrangler configured & authenticated. |
+| Cloudflare D1 | Remote database `leadpulse` (`ac7f69d2-00fa-461e-8a30-c801bc27c51e`) with schema v1 & v2 applied. |
+| Cloudflare Deployment | Deployed live to **`https://leadpulse.rajpiyush092.workers.dev`** (Worker + Static Assets). |
 | Unit/API tests | `npx vitest run` → **36/36 passed** (13 unit + 23 API integration) |
 | Browser tests | `npm run test:e2e` → **15/15 passed** (Playwright 1.65 + axe-core, Chromium) with zero accessibility violations |
 | Typecheck / build | `npx tsc --noEmit` clean · `npx vite build` clean (JS 297.49 kB / 86.60 kB gzip, CSS 20.75 kB) |
 | Repository | `D:/SaaS/leadpulse`, branch **`master`** |
 | Remote | **`https://github.com/Warriorlegacy/leadpulse`**, origin configured; GitHub Actions CI configured for `verify` and `browser` jobs |
-| Live URL | https://wbapp-fg7bnl5o2kwfvsenkc0fkh.apps.workbuddy.host/?sharecode=N2EQKU23CQ |
+| Live WorkBuddy URL | https://wbapp-fg7bnl5o2kwfvsenkc0fkh.apps.workbuddy.host/?sharecode=N2EQKU23CQ |
+| Live Cloudflare URL | https://leadpulse.rajpiyush092.workers.dev |
 
 ---
 
@@ -35,12 +39,17 @@
   - `verify`: Node 22 setup, typecheck, Vitest unit & API tests, Vite build, server boot & health probe.
   - `browser`: Playwright install, Chromium e2e tests, axe-core WCAG 2.1 A/AA scans.
 
-## 3. Live deployment
+## 3. Live deployments
 
-- **URL:** https://wbapp-fg7bnl5o2kwfvsenkc0fkh.apps.workbuddy.host/?sharecode=N2EQKU23CQ
-- Provider: WorkBuddy App Publishing (`http-service`, sandbox `6a2e6a95f934402ba26c73e197b3e533`).
-- **To republish:** In WorkBuddy (client → avatar → Settings → Data management → Apps → open conversation for this app) send **“重新发布此应用”**, or run App Publishing for `D:/SaaS/leadpulse` with `installCmd = npm install --no-audit --no-fund` and `startCmd = npm run build && node server/index.js`.
-- **Cloudflare deployment:** Ready via `cloudflare/wrangler.toml` and `server/cloudflare-worker.js`. Run `npx wrangler deploy` once Cloudflare credentials/account are authenticated.
+- **Cloudflare Workers & Pages Deployment:**
+  - **Live URL:** https://leadpulse.rajpiyush092.workers.dev
+  - **Health Endpoint:** https://leadpulse.rajpiyush092.workers.dev/api/v1/health
+  - **Architecture:** Cloudflare Workers (`server/cloudflare-worker.js`), Cloudflare D1 database (`leadpulse`), Workers Static Assets (`public/`).
+  - **Deploy Command:** `npx wrangler deploy` (or `cf`)
+- **WorkBuddy App Hosting Deployment:**
+  - **URL:** https://wbapp-fg7bnl5o2kwfvsenkc0fkh.apps.workbuddy.host/?sharecode=N2EQKU23CQ
+  - Provider: WorkBuddy App Publishing (`http-service`, sandbox `6a2e6a95f934402ba26c73e197b3e533`).
+  - **To republish:** In WorkBuddy send “重新发布此应用”, or run App Publishing with `installCmd = npm install --no-audit --no-fund` and `startCmd = npm run build && node server/index.js`.
 
 ## 4. Technology in use
 
