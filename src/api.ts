@@ -107,6 +107,55 @@ export interface LeadAttachment {
   created_at: string;
 }
 
+export interface Subscription {
+  organization_id: string;
+  plan_tier: 'solo' | 'team' | 'agency';
+  status: 'active' | 'trialing' | 'past_due' | 'canceled' | 'incomplete';
+  billing_provider: 'manual' | 'stripe' | 'razorpay';
+  customer_id: string | null;
+  subscription_id: string | null;
+  current_period_start: string;
+  current_period_end: string;
+  cancel_at_period_end: number;
+  max_seats: number;
+  max_workspaces: number;
+  planName?: string;
+  features?: string[];
+  isActive?: boolean;
+}
+
+export interface PlanConfig {
+  id: 'solo' | 'team' | 'agency';
+  name: string;
+  priceInr: number;
+  priceUsd: number;
+  maxSeats: number;
+  maxWorkspaces: number;
+  features: string[];
+}
+
+export interface Invoice {
+  id: string;
+  provider: string;
+  invoice_id: string;
+  amount_paid: number;
+  currency: string;
+  status: string;
+  hosted_invoice_url: string;
+  invoice_pdf: string;
+  paid_at: string;
+  created_at: string;
+}
+
+export interface BillingOverview {
+  subscription: Subscription;
+  plan: PlanConfig;
+  plans: PlanConfig[];
+  seats: { used: number; limit: number; available: number };
+  invoices: Invoice[];
+  config: { stripeConfigured: boolean; razorpayConfigured: boolean; currency: string };
+}
+
 export interface AiSettings {
   enabled: boolean;
   provider: string;
@@ -257,3 +306,35 @@ export const relative = (value: string | null | undefined): string => {
   if (future < 1440) return `in ${Math.round(future / 60)}h`;
   return `in ${Math.round(future / 1440)}d`;
 };
+
+export async function fetchBillingOverview(): Promise<BillingOverview> {
+  return api<BillingOverview>('/billing');
+}
+
+export async function startCheckout(planId: string, provider: 'stripe' | 'razorpay' = 'stripe'): Promise<{ checkoutUrl: string; sessionId: string; mode: string }> {
+  return api<{ checkoutUrl: string; sessionId: string; mode: string }>('/billing/checkout', {
+    method: 'POST',
+    body: { planId, provider },
+  });
+}
+
+export async function openCustomerPortal(): Promise<{ portalUrl: string }> {
+  return api<{ portalUrl: string }>('/billing/portal', {
+    method: 'POST',
+    body: {},
+  });
+}
+
+export async function activateSimulatedPlan(planId: string): Promise<{ message: string; subscription: Subscription }> {
+  return api<{ message: string; subscription: Subscription }>('/billing/activate-simulated', {
+    method: 'POST',
+    body: { planId },
+  });
+}
+
+export async function cancelSubscription(): Promise<{ message: string; subscription: Subscription }> {
+  return api<{ message: string; subscription: Subscription }>('/billing/cancel', {
+    method: 'POST',
+    body: {},
+  });
+}

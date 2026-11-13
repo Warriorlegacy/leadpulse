@@ -95,9 +95,9 @@ export function Landing() {
 }
 
 const PLANS = [
-  { name: 'Solo', price: '₹799', detail: 'One person, one pipeline', items: ['Single workspace', 'Lead inbox and pipeline', 'CSV import and export', 'Public capture form'] },
-  { name: 'Team', price: '₹1,999', detail: 'Small teams with shared ownership', items: ['Everything in Solo', 'Up to 10 teammates', 'Assignments and follow-up tasks', 'Reports and audit log'] },
-  { name: 'Agency', price: '₹3,999', detail: 'Multiple client pipelines', items: ['Everything in Team', 'Multiple workspaces', 'Signed inbound webhooks', 'Workspace data export'] },
+  { id: 'solo', name: 'Solo Pilot', price: '₹799', usd: '$19', detail: 'One person, one pipeline', items: ['Single workspace', 'Lead inbox and Kanban pipeline', 'CSV import and export', 'Public capture form', 'Basic response timer'] },
+  { id: 'team', name: 'Team Growth', price: '₹1,999', usd: '$49', detail: 'Small teams with shared ownership', items: ['Everything in Solo', 'Up to 10 teammates', 'Shared inbox & lead assignment', 'SLA overdue alarms', 'AI Speed-to-Lead briefing', 'Reports and audit trail'] },
+  { id: 'agency', name: 'Agency Scale', price: '₹3,999', usd: '$99', detail: 'Multiple client pipelines & agencies', items: ['Everything in Team', 'Multiple client workspaces', 'Signed HMAC webhooks (Zapier/Make)', 'Document attachments (10MB)', 'Full JSON workspace backups'] },
 ];
 
 export function Pricing() {
@@ -105,26 +105,26 @@ export function Pricing() {
     <div className="public">
       <PublicHeader />
       <section className="public-section">
-        <p className="eyebrow">Pricing</p>
-        <h2>A hypothesis, not an offer</h2>
-        <p>These numbers are a starting point for buyer conversations. They have not been validated, billing is not configured, and no payment can be taken in this build.</p>
-        <div className="notice notice-info" style={{ marginBottom: 24 }}>
-          <Icon name="alert" size={18} />
-          <span>Pricing is experimental. The current pilot is manually managed and free of charge. No payment provider is connected.</span>
-        </div>
+        <p className="eyebrow">Pricing & Plans</p>
+        <h2>Simple, transparent pricing for speed-to-lead</h2>
+        <p>Start with a 14-day free pilot. Automated self-serve billing powered by Stripe & Razorpay. Cancel anytime.</p>
         <div className="price-grid">
           {PLANS.map((p) => (
-            <div className="price-card" key={p.name}>
+            <div className="price-card" key={p.name} style={{ display: 'flex', flexDirection: 'column' }}>
               <h3>{p.name}</h3>
-              <div className="price">{p.price}<span className="small muted"> / month (hypothesis)</span></div>
+              <div className="price">{p.price}<span className="small muted"> / mo ({p.usd})</span></div>
               <p className="small muted">{p.detail}</p>
-              <ul>{p.items.map((i) => <li key={i}>· {i}</li>)}</ul>
+              <ul style={{ flex: 1 }}>{p.items.map((i) => <li key={i}>· {i}</li>)}</ul>
+              <div style={{ marginTop: 24 }}>
+                <Link className="btn btn-primary" to={`/signup?plan=${p.id}`} style={{ width: '100%', textAlign: 'center' }}>
+                  Start {p.name} <Icon name="arrow" size={14} />
+                </Link>
+              </div>
             </div>
           ))}
         </div>
-        <div className="row" style={{ marginTop: 28 }}>
-          <Link className="btn btn-primary" to="/signup">Start a free pilot</Link>
-          <span className="small muted">Pilot access is provisioned manually and includes synthetic demo data.</span>
+        <div className="row" style={{ marginTop: 32, alignItems: 'center', justifyContent: 'center' }}>
+          <span className="small muted">Need custom enterprise SLAs or multi-agency volume billing? Contact us at billing@leadpulse.example.</span>
         </div>
       </section>
       <PublicFooter />

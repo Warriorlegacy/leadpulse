@@ -6,6 +6,7 @@ import { registerAuthRoutes, registerWorkspaceRoutes } from './routes/auth-works
 import { registerLeadRoutes } from './routes/leads.js';
 import { registerWorkflowRoutes } from './routes/workflow.js';
 import { registerDataRoutes } from './routes/data.js';
+import { registerBillingRoutes } from './routes/billing.js';
 
 export const APP_VERSION = '0.1.0';
 
@@ -29,6 +30,7 @@ export function createApp() {
   registerLeadRoutes(app);
   registerWorkflowRoutes(app);
   registerDataRoutes(app);
+  registerBillingRoutes(app);
 
   app.notFound((c) => c.json(
     { error: { code: 'NOT_FOUND', message: 'No route matches this request.' }, requestId: c.get('requestId') },

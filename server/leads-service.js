@@ -1,7 +1,7 @@
 import { one, all, run, tx } from './context.js';
 import {
   uid, nowIso, text, normalizeEmail, normalizePhone, phoneTail, randomToken,
-  validEmail, validPhone, similarity, clampInt,
+  validEmail, validPhone, similarity, clampInt, addMinutes,
 } from './util.js';
 import { fail } from './security.js';
 
@@ -331,6 +331,14 @@ export function createWorkspaceForUser(userId, workspaceName, { isDemo = false, 
       );
     });
     run('INSERT INTO plan_limits(organization_id, plan, updated_at) VALUES(?, ?, ?)', [orgId, 'pilot', ts]);
+    run(
+      `INSERT INTO organization_subscriptions(
+         organization_id, plan_tier, status, billing_provider, customer_id,
+         subscription_id, current_period_start, current_period_end, cancel_at_period_end,
+         max_seats, max_workspaces, created_at, updated_at
+       ) VALUES(?, 'solo', 'active', 'manual', NULL, NULL, ?, ?, 0, 1, 1, ?, ?)`,
+      [orgId, ts, addMinutes(ts, 365 * 1440), ts, ts],
+    );
     run(
       `INSERT INTO capture_forms(id, organization_id, public_id, created_at, updated_at)
        VALUES(?, ?, ?, ?, ?)`,

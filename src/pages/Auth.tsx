@@ -26,7 +26,12 @@ export function AuthPage({ mode }: { mode: 'login' | 'signup' }) {
       });
       setAuth(payload);
       const next = searchParams.get('next');
-      navigate(next && next.startsWith('/') && !next.startsWith('//') ? next : '/app', { replace: true });
+      const plan = searchParams.get('plan');
+      if (isSignup && plan && ['team', 'agency'].includes(plan)) {
+        navigate(`/app/settings?billing_upgrade=${plan}`, { replace: true });
+      } else {
+        navigate(next && next.startsWith('/') && !next.startsWith('//') ? next : '/app', { replace: true });
+      }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not complete the request.');
     } finally {

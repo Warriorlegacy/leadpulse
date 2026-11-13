@@ -1,5 +1,10 @@
 import React, { useState } from 'react';
-import { api, ApiError, downloadFile, fmtDate, type Organization, type AiSettings, type EmailSettings } from '../api';
+import {
+  api, ApiError, downloadFile, fmtDate, fmtMoney,
+  type Organization, type AiSettings, type EmailSettings,
+  type BillingOverview, startCheckout, openCustomerPortal,
+  activateSimulatedPlan,
+} from '../api';
 import { Badge, Empty, ErrorNotice, Field, Icon, Modal, Spinner, useApi, useToast } from '../ui';
 import { useAuth } from '../App';
 
@@ -173,6 +178,7 @@ export function SettingsPage() {
   const pipeline = useApi<{ columns: { stage: StageConfig }[] }>('/pipeline');
   const aiSettings = useApi<AiSettings>(canConfigure ? '/workspace/ai-settings' : null);
   const emailSettings = useApi<EmailSettings>(canConfigure ? '/workspace/email-settings' : null);
+  const billing = useApi<BillingOverview>(canConfigure ? '/billing' : null);
 
   const [ws, setWs] = useState<Record<string, string | boolean>>({});
   const [captureForm, setCaptureForm] = useState<Record<string, unknown>>({});
@@ -182,6 +188,7 @@ export function SettingsPage() {
   const [deleteConfirm, setDeleteConfirm] = useState('');
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [billingBusy, setBillingBusy] = useState(false);
 
   // AI local settings state
   const [aiEnabled, setAiEnabled] = useState<boolean | null>(null);
@@ -191,6 +198,42 @@ export function SettingsPage() {
   const [emailProvider, setEmailProvider] = useState<string | null>(null);
   const [emailFromName, setEmailFromName] = useState<string | null>(null);
   const [emailFromAddress, setEmailFromAddress] = useState<string | null>(null);
+
+  const upgradePlan = async (planId: string) => {
+    setBillingBusy(true);
+    try {
+      const res = await startCheckout(planId, 'stripe');
+      if (res.mode === 'live' && res.checkoutUrl) {
+        window.location.assign(res.checkoutUrl);
+        return;
+      }
+      await activateSimulatedPlan(planId);
+      toast(`Successfully switched to ${planId.toUpperCase()} plan.`, 'success');
+      billing.reload();
+      workspace.reload();
+      void refresh();
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : 'Could not initiate checkout.', 'error');
+    } finally {
+      setBillingBusy(false);
+    }
+  };
+
+  const managePortal = async () => {
+    setBillingBusy(true);
+    try {
+      const res = await openCustomerPortal();
+      if (res.portalUrl && res.portalUrl.startsWith('http')) {
+        window.location.assign(res.portalUrl);
+      } else {
+        toast('No external customer portal configured for this account.', 'info');
+      }
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : 'Could not open billing portal.', 'error');
+    } finally {
+      setBillingBusy(false);
+    }
+  };
 
   const saveAi = async () => {
     try {
@@ -534,6 +577,103 @@ export function SettingsPage() {
               <Badge tone={i.configured ? 'green' : 'neutral'}>{i.configured ? 'Configured' : 'Disabled'}</Badge>
             </div>)}
             <p className="hint" style={{ marginTop: 10 }}>All optional providers are behind adapters. The core product works with every one of them disabled.</p>
+          </div>
+        </section>
+
+        <section className="card">
+          <div className="card-head">
+            <h3>Subscription & Billing</h3>
+            {billing.data && (
+              <Badge tone={billing.data.subscription.status === 'active' ? 'green' : 'amber'}>
+                {billing.data.subscription.planName || billing.data.subscription.plan_tier} · {billing.data.subscription.status}
+              </Badge>
+            )}
+          </div>
+          <div className="card-body stack" style={{ gap: 16 }}>
+            {billing.loading && <Spinner label="Loading billing overview" />}
+            {billing.data && (
+              <>
+                <div className="row-between" style={{ padding: '8px 0', borderBottom: '1px solid var(--line)' }}>
+                  <div>
+                    <div style={{ fontWeight: 600 }}>Active Plan: {billing.data.subscription.planName}</div>
+                    <div className="cell-sub">
+                      Provider: {billing.data.subscription.billing_provider.toUpperCase()} · Period renewal: {fmtDate(billing.data.subscription.current_period_end)}
+                    </div>
+                  </div>
+                  <div className="small muted">
+                    Seats: <strong>{billing.data.seats.used}</strong> / {billing.data.seats.limit} active
+                  </div>
+                </div>
+
+                <div className="price-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 12 }}>
+                  {billing.data.plans.map((p) => {
+                    const isCurrent = billing.data?.subscription.plan_tier === p.id;
+                    return (
+                      <div key={p.id} className="price-card" style={{ padding: 14, borderColor: isCurrent ? 'var(--accent)' : undefined }}>
+                        <div className="row-between">
+                          <h4 style={{ margin: 0 }}>{p.name}</h4>
+                          {isCurrent && <Badge tone="blue">Current</Badge>}
+                        </div>
+                        <div className="price" style={{ fontSize: 20, margin: '8px 0' }}>
+                          ₹{p.priceInr}<span className="small muted"> / mo (${p.priceUsd})</span>
+                        </div>
+                        <ul className="small muted" style={{ listStyle: 'none', padding: 0, margin: '8px 0 14px' }}>
+                          <li>· Up to {p.maxSeats} seat{p.maxSeats > 1 ? 's' : ''}</li>
+                          <li>· {p.maxWorkspaces} workspace{p.maxWorkspaces > 1 ? 's' : ''}</li>
+                          {p.features.slice(1, 3).map((f) => <li key={f}>· {f}</li>)}
+                        </ul>
+                        <button
+                          className={`btn btn-small ${isCurrent ? '' : 'btn-primary'}`}
+                          style={{ width: '100%' }}
+                          disabled={isCurrent || billingBusy || !canConfigure}
+                          onClick={() => void upgradePlan(p.id)}
+                        >
+                          {isCurrent ? 'Current Plan' : `Switch to ${p.name}`}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="row" style={{ marginTop: 8 }}>
+                  <button className="btn" disabled={billingBusy || !canConfigure} onClick={() => void managePortal()}>
+                    <Icon name="link" size={15} /> Customer Portal & Receipts
+                  </button>
+                </div>
+
+                {billing.data.invoices && billing.data.invoices.length > 0 && (
+                  <div style={{ marginTop: 12 }}>
+                    <h4>Billing History</h4>
+                    <table className="table" style={{ marginTop: 6 }}>
+                      <thead>
+                        <tr>
+                          <th>Invoice</th>
+                          <th>Date</th>
+                          <th>Amount</th>
+                          <th>Status</th>
+                          <th>Receipt</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {billing.data.invoices.map((inv) => (
+                          <tr key={inv.id}>
+                            <td><code>{inv.invoice_id}</code></td>
+                            <td>{fmtDate(inv.paid_at || inv.created_at)}</td>
+                            <td>{fmtMoney(inv.amount_paid / 100, inv.currency)}</td>
+                            <td><Badge tone={inv.status === 'paid' ? 'green' : 'neutral'}>{inv.status}</Badge></td>
+                            <td>
+                              {inv.hosted_invoice_url ? (
+                                <a href={inv.hosted_invoice_url} target="_blank" rel="noopener noreferrer" className="link">View</a>
+                              ) : '—'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         </section>
 

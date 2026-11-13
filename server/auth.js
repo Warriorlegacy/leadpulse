@@ -71,6 +71,7 @@ const CSRF_EXEMPT = [
   /^\/api\/v1\/auth\/(signup|login|logout)$/,
   /^\/api\/v1\/public\//,
   /^\/api\/v1\/webhooks\/inbound\//,
+  /^\/api\/v1\/billing\/webhook\//,
   /^\/api\/v1\/health$/,
 ];
 

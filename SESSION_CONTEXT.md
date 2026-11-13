@@ -10,19 +10,20 @@
 
 | Check | Verified result |
 | --- | --- |
-| Development | Production features implemented: AI engine (Gemini/Groq), password recovery & email adapter, document attachments, Cloudflare dual runtime, full SEO suite (Meta, OpenGraph, JSON-LD, sitemap, robots, llms.txt), GTM Strategy Guide. |
+| Development | Production features implemented: AI engine (Gemini/Groq), password recovery & email adapter, document attachments, Cloudflare dual runtime, full SEO suite (Meta, OpenGraph, JSON-LD, sitemap, robots, llms.txt), GTM Strategy Guide, Automated Billing & Subscriptions (Stripe / Razorpay webhooks, checkout, portal, dev simulation). |
 | Cloudflare Setup | All 22 skills installed, Cloudflare MCP configured, `cf` CLI installed, Wrangler configured & authenticated. |
-| Cloudflare D1 | Remote database `leadpulse` (`ac7f69d2-00fa-461e-8a30-c801bc27c51e`) with schema v1 & v2 applied. |
+| Cloudflare D1 | Remote database `leadpulse` (`ac7f69d2-00fa-461e-8a30-c801bc27c51e`) with schema v1, v2 & v3 applied. |
 | Cloudflare Deployment | Deployed live to **`https://leadpulse.rajpiyush092.workers.dev`** (Worker + Static Assets). |
-| Unit/API tests | `npx vitest run` → **36/36 passed** (13 unit + 23 API integration) |
+| Unit/API/Billing tests | `npx vitest run` → **44/44 passed** (13 unit + 23 API integration + 8 billing & webhooks) |
 | Browser tests | `npm run test:e2e` → **15/15 passed** (Playwright 1.65 + axe-core, Chromium) with zero accessibility violations |
-| Typecheck / build | `npx tsc --noEmit` clean · `npx vite build` clean (JS 297.49 kB / 86.60 kB gzip, CSS 20.75 kB) |
+| Typecheck / build | `npx tsc --noEmit` clean · `npx vite build` clean (JS 302.03 kB / 87.96 kB gzip, CSS 20.75 kB) |
 | Repository | `D:/SaaS/leadpulse`, branch **`master`** |
 | Remote | **`https://github.com/Warriorlegacy/leadpulse`**, origin configured; GitHub Actions CI configured for `verify` and `browser` jobs |
 | Live WorkBuddy URL | https://wbapp-fg7bnl5o2kwfvsenkc0fkh.apps.workbuddy.host/?sharecode=N2EQKU23CQ |
 | Live Cloudflare URL | https://leadpulse.rajpiyush092.workers.dev |
 | SEO & Discovery | `sitemap.xml`, `robots.txt`, `llms.txt`, `llms-full.txt`, OpenGraph, Twitter, Schema.org JSON-LD |
 | Strategy Artifact | `docs/GTM_STRATEGY.md` (90-day roadmap to $10,000 MRR, ICPs, Mystery Shopper playbook) |
+| Billing & Webhooks | Stripe & Razorpay webhook handlers, signature verification, idempotency (`billing_events`), invoice history (`billing_invoices`), self-serve plan upgrades |
 
 ---
 
