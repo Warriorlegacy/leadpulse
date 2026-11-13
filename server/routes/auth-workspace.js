@@ -483,11 +483,26 @@ export function registerWorkspaceRoutes(app) {
           reason: 'No approved account or templates. Only a user-initiated click-to-chat link is offered.',
         },
         {
-          key: 'billing',
-          label: 'Payments',
-          configured: false,
-          state: 'disabled',
-          reason: 'Pricing is unvalidated. No billing provider is connected and no payments are simulated.',
+          key: 'billing_razorpay',
+          label: 'Razorpay payment gateway',
+          configured: Boolean(process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET),
+          state: Boolean(process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET)
+            ? 'live (UPI, Netbanking, Cards)'
+            : 'sandbox simulation',
+          reason: Boolean(process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET)
+            ? 'Active for instant domestic checkouts via UPI, Cards, and Netbanking.'
+            : 'Sandbox simulation mode active. Add RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET for production checkouts.',
+          provider: 'razorpay',
+        },
+        {
+          key: 'billing_stripe',
+          label: 'Stripe payment gateway',
+          configured: Boolean(process.env.STRIPE_SECRET_KEY),
+          state: Boolean(process.env.STRIPE_SECRET_KEY) ? 'live (Stripe Checkout)' : 'sandbox simulation',
+          reason: Boolean(process.env.STRIPE_SECRET_KEY)
+            ? 'Active for international card checkouts and customer billing portal.'
+            : 'Sandbox simulation mode active. Add STRIPE_SECRET_KEY for production checkouts.',
+          provider: 'stripe',
         },
       ],
     });

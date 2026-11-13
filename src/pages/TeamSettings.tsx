@@ -198,17 +198,18 @@ export function SettingsPage() {
   const [emailProvider, setEmailProvider] = useState<string | null>(null);
   const [emailFromName, setEmailFromName] = useState<string | null>(null);
   const [emailFromAddress, setEmailFromAddress] = useState<string | null>(null);
+  const [paymentProvider, setPaymentProvider] = useState<'razorpay' | 'stripe'>('razorpay');
 
   const upgradePlan = async (planId: string) => {
     setBillingBusy(true);
     try {
-      const res = await startCheckout(planId, 'stripe');
+      const res = await startCheckout(planId, paymentProvider);
       if (res.mode === 'live' && res.checkoutUrl) {
         window.location.assign(res.checkoutUrl);
         return;
       }
       await activateSimulatedPlan(planId);
-      toast(`Successfully switched to ${planId.toUpperCase()} plan.`, 'success');
+      toast(`Successfully switched to ${planId.toUpperCase()} plan (via ${paymentProvider.toUpperCase()}).`, 'success');
       billing.reload();
       workspace.reload();
       void refresh();
@@ -603,6 +604,30 @@ export function SettingsPage() {
                   <div className="small muted">
                     Seats: <strong>{billing.data.seats.used}</strong> / {billing.data.seats.limit} active
                   </div>
+                </div>
+
+                <div className="row" style={{ alignItems: 'center', gap: 16, padding: '4px 0' }}>
+                  <span className="small" style={{ fontWeight: 600 }}>Checkout Rail:</span>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
+                    <input
+                      type="radio"
+                      name="paymentProvider"
+                      value="razorpay"
+                      checked={paymentProvider === 'razorpay'}
+                      onChange={() => setPaymentProvider('razorpay')}
+                    />
+                    <span><strong>Razorpay</strong> (UPI, Netbanking, Cards · INR)</span>
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
+                    <input
+                      type="radio"
+                      name="paymentProvider"
+                      value="stripe"
+                      checked={paymentProvider === 'stripe'}
+                      onChange={() => setPaymentProvider('stripe')}
+                    />
+                    <span><strong>Stripe</strong> (Credit Cards · Global)</span>
+                  </label>
                 </div>
 
                 <div className="price-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 12 }}>

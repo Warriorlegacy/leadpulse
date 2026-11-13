@@ -42,3 +42,4 @@ CREATE TABLE IF NOT EXISTS billing_invoices (
   created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_billing_invoices_org ON billing_invoices(organization_id, created_at);
+

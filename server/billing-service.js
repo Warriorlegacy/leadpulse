@@ -474,34 +474,45 @@ export function handleRazorpayWebhook(rawBody, signatureHeader) {
     const payload = event.payload || {};
     const payment = payload.payment?.entity;
     const subscription = payload.subscription?.entity;
+    const paymentLink = payload.payment_link?.entity;
+    const order = payload.order?.entity;
 
-    const notes = payment?.notes || subscription?.notes || {};
+    const notes = payment?.notes || subscription?.notes || paymentLink?.notes || order?.notes || {};
     const orgId = notes.orgId;
     const planId = notes.planId || 'team';
 
     if (orgId) {
       affectedOrgId = orgId;
-      if (['subscription.activated', 'subscription.charged', 'payment.captured'].includes(eventType)) {
+      const isActivationEvent = [
+        'subscription.activated', 'subscription.charged', 'subscription.authenticated',
+        'payment.captured', 'payment_link.paid', 'order.paid',
+      ].includes(eventType);
+
+      if (isActivationEvent) {
         activateSubscriptionPlan(
           orgId,
           planId,
           'razorpay',
-          payment?.customer_id || subscription?.customer_id,
-          subscription?.id || payment?.id,
+          payment?.customer_id || subscription?.customer_id || paymentLink?.customer?.id,
+          subscription?.id || payment?.id || paymentLink?.id,
         );
 
-        if (payment && payment.amount) {
-          const invoiceId = payment.id;
+        const amount = payment?.amount || paymentLink?.amount_paid || paymentLink?.amount || 0;
+        const invoiceId = payment?.id || paymentLink?.id || `rzp_${Date.now()}`;
+        const currency = (payment?.currency || paymentLink?.currency || 'INR').toUpperCase();
+        const shortUrl = paymentLink?.short_url || '';
+
+        if (amount > 0) {
           const exists = one('SELECT id FROM billing_invoices WHERE invoice_id = ?', [invoiceId]);
           if (!exists) {
             run(
               `INSERT INTO billing_invoices(
                  id, organization_id, provider, invoice_id, amount_paid, currency,
                  status, hosted_invoice_url, invoice_pdf, paid_at, created_at
-               ) VALUES(?, ?, 'razorpay', ?, ?, ?, 'paid', ?, ?, ?, ?)`,
+               ) VALUES(?, ?, 'razorpay', ?, ?, ?, 'paid', ?, '', ?, ?)`,
               [
-                uid('inv'), orgId, invoiceId, payment.amount, (payment.currency || 'INR').toUpperCase(),
-                '', '', nowIso(), nowIso(),
+                uid('inv'), orgId, invoiceId, amount, currency,
+                shortUrl, nowIso(), nowIso(),
               ],
             );
           }
