@@ -21,11 +21,12 @@ export function getAiSettings(orgId) {
     }
   }
 
-  const enabled = Boolean(row?.enabled && hasAnyKey);
-  const provider = row?.provider || (hasGemini ? 'gemini' : hasGroq ? 'groq' : 'none');
+  const enabled = Boolean(row?.enabled);
+  const provider = row?.provider || (hasGemini ? 'gemini' : hasGroq ? 'groq' : 'gemini');
 
   return {
     enabled,
+    active: Boolean(enabled && hasAnyKey),
     provider,
     leadSummaryEnabled: row ? Boolean(row.lead_summary_enabled) : true,
     draftResponseEnabled: row ? Boolean(row.draft_response_enabled) : true,
@@ -170,6 +171,12 @@ export async function generateLeadBrief(orgId, lead, activities = [], stageName 
       reason: 'AI features must be enabled in Workspace Settings by an administrator before generating briefs.',
     };
   }
+  if (!settings.configured) {
+    return {
+      available: false,
+      reason: 'No AI provider credentials (GEMINI_API_KEY or GROQ_API_KEY) are configured in the environment.',
+    };
+  }
 
   const activitySummary = activities.slice(0, 5).map(
     (a) => `[${a.type}] ${a.body.slice(0, 140)}`
@@ -227,6 +234,12 @@ export async function generateDraftResponse(orgId, lead, { channel = 'email', to
     return {
       available: false,
       reason: 'AI features must be enabled in Workspace Settings by an administrator before drafting responses.',
+    };
+  }
+  if (!settings.configured) {
+    return {
+      available: false,
+      reason: 'No AI provider credentials (GEMINI_API_KEY or GROQ_API_KEY) are configured in the environment.',
     };
   }
 
