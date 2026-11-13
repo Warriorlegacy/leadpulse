@@ -10,7 +10,7 @@
 
 | Check | Verified result |
 | --- | --- |
-| Development | Production features implemented: AI engine (Gemini/Groq), password recovery & email adapter, document attachments, Cloudflare dual runtime. |
+| Development | Production features implemented: AI engine (Gemini/Groq), password recovery & email adapter, document attachments, Cloudflare dual runtime, full SEO suite (Meta, OpenGraph, JSON-LD, sitemap, robots, llms.txt), GTM Strategy Guide. |
 | Cloudflare Setup | All 22 skills installed, Cloudflare MCP configured, `cf` CLI installed, Wrangler configured & authenticated. |
 | Cloudflare D1 | Remote database `leadpulse` (`ac7f69d2-00fa-461e-8a30-c801bc27c51e`) with schema v1 & v2 applied. |
 | Cloudflare Deployment | Deployed live to **`https://leadpulse.rajpiyush092.workers.dev`** (Worker + Static Assets). |
@@ -21,6 +21,8 @@
 | Remote | **`https://github.com/Warriorlegacy/leadpulse`**, origin configured; GitHub Actions CI configured for `verify` and `browser` jobs |
 | Live WorkBuddy URL | https://wbapp-fg7bnl5o2kwfvsenkc0fkh.apps.workbuddy.host/?sharecode=N2EQKU23CQ |
 | Live Cloudflare URL | https://leadpulse.rajpiyush092.workers.dev |
+| SEO & Discovery | `sitemap.xml`, `robots.txt`, `llms.txt`, `llms-full.txt`, OpenGraph, Twitter, Schema.org JSON-LD |
+| Strategy Artifact | `docs/GTM_STRATEGY.md` (90-day roadmap to $10,000 MRR, ICPs, Mystery Shopper playbook) |
 
 ---
 
