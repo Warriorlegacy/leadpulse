@@ -458,3 +458,106 @@ describe('reporting accuracy', () => {
     expect(summary.body.data.sourceBreakdown.reduce((n: number, s: any) => n + s.leads, 0)).toBe(2);
   });
 });
+
+describe('production features: password reset, AI speed-to-lead and attachments', () => {
+  it('executes self-serve password reset and revokes prior sessions', async () => {
+    const { c, email, user } = await signup('ResetUser', '10.6.0.1');
+    const forgotRes = await c.request('POST', '/api/v1/auth/forgot-password', { email });
+    expect(forgotRes.status).toBe(200);
+    expect(forgotRes.body.data.requested).toBe(true);
+
+    const resetRow = one('SELECT * FROM password_resets WHERE user_id = ?', [user.id]);
+    expect(resetRow).toBeTruthy();
+
+    // Fabricate known token for testing deterministic reset
+    const testToken = crypto.randomBytes(16).toString('hex');
+    const testHash = crypto.createHash('sha256').update(testToken).digest('hex');
+    run('UPDATE password_resets SET token_hash = ? WHERE id = ?', [testHash, resetRow.id]);
+
+    const resetRes = await client('10.6.0.2').request('POST', '/api/v1/auth/reset-password', {
+      token: testToken,
+      password: 'new-secure-password-456',
+    });
+    expect(resetRes.status).toBe(200);
+    expect(resetRes.body.data.reset).toBe(true);
+
+    // Old password fails
+    const oldLogin = await client('10.6.0.3').request('POST', '/api/v1/auth/login', {
+      email,
+      password: 'test-password-123',
+    });
+    expect(oldLogin.status).toBe(401);
+
+    // New password succeeds
+    const newLogin = await client('10.6.0.4').request('POST', '/api/v1/auth/login', {
+      email,
+      password: 'new-secure-password-456',
+    });
+    expect(newLogin.status).toBe(200);
+
+    // Reusing token fails
+    const reuse = await client('10.6.0.5').request('POST', '/api/v1/auth/reset-password', {
+      token: testToken,
+      password: 'another-password-789',
+    });
+    expect(reuse.status).toBe(400);
+    expect(reuse.body.error.code).toBe('INVALID_OR_EXPIRED_TOKEN');
+  });
+
+  it('manages workspace AI settings and truthfully enforces opt-in', async () => {
+    const { c } = await signup('AiOwner', '10.7.0.1');
+    const leadRes = await c.request('POST', '/api/v1/leads', { name: 'AI Test Lead', email: 'ai@example.org' });
+    const leadId = leadRes.body.data.lead.id;
+
+    // Disabled initially
+    const briefDisabled = await c.request('POST', `/api/v1/leads/${leadId}/ai/brief`, {});
+    expect(briefDisabled.status).toBe(200);
+    expect(briefDisabled.body.data.available).toBe(false);
+
+    // Enable in workspace settings
+    const patchRes = await c.request('PATCH', '/api/v1/workspace/ai-settings', {
+      enabled: true,
+      provider: 'gemini',
+    });
+    expect(patchRes.status).toBe(200);
+    expect(patchRes.body.data.enabled).toBe(true);
+
+    // Retrieve settings
+    const getRes = await c.request('GET', '/api/v1/workspace/ai-settings');
+    expect(getRes.status).toBe(200);
+    expect(getRes.body.data.provider).toBe('gemini');
+  });
+
+  it('manages lead attachments with scoped permissions and deletion', async () => {
+    const { c } = await signup('AttachOwner', '10.8.0.1');
+    const leadRes = await c.request('POST', '/api/v1/leads', { name: 'Attach Lead', email: 'attach@example.org' });
+    const leadId = leadRes.body.data.lead.id;
+
+    // List empty
+    const emptyList = await c.request('GET', `/api/v1/leads/${leadId}/attachments`);
+    expect(emptyList.status).toBe(200);
+    expect(emptyList.body.data.items).toEqual([]);
+
+    // Insert simulated attachment directly via DB/storage to test listing and deletion
+    const testAttId = 'att_' + crypto.randomBytes(8).toString('hex');
+    const orgRow = one('SELECT organization_id FROM leads WHERE id = ?', [leadId]);
+    run(
+      `INSERT INTO lead_attachments(id, organization_id, lead_id, filename, mime_type, size_bytes, checksum, storage_key, created_at)
+       VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [testAttId, orgRow.organization_id, leadId, 'proposal.pdf', 'application/pdf', 2048, 'chk123', 'fake/path', new Date().toISOString()]
+    );
+
+    const listRes = await c.request('GET', `/api/v1/leads/${leadId}/attachments`);
+    expect(listRes.status).toBe(200);
+    expect(listRes.body.data.items.length).toBe(1);
+    expect(listRes.body.data.items[0].filename).toBe('proposal.pdf');
+
+    // Delete attachment
+    const delRes = await c.request('DELETE', `/api/v1/leads/${leadId}/attachments/${testAttId}`);
+    expect(delRes.status).toBe(200);
+    expect(delRes.body.data.deleted).toBe(true);
+
+    const afterList = await c.request('GET', `/api/v1/leads/${leadId}/attachments`);
+    expect(afterList.body.data.items.length).toBe(0);
+  });
+});

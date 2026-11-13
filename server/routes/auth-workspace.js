@@ -13,7 +13,10 @@ import {
 import {
   parseBody, parseQuery, signupSchema, loginSchema, switchOrgSchema,
   workspaceUpdateSchema, inviteSchema, acceptInviteSchema, memberRoleSchema,
+  forgotPasswordSchema, resetPasswordSchema, aiSettingsSchema, emailSettingsSchema,
 } from '../validate.js';
+import { sendPasswordResetEmail, sendInvitationEmail, getEmailSettings } from '../email-service.js';
+import { getAiSettings, saveAiSettings } from '../ai-service.js';
 import { z } from 'zod';
 
 const ROLE_RANK = { agent: 1, manager: 2, workspace_admin: 3, workspace_owner: 4 };
@@ -91,6 +94,60 @@ export function registerAuthRoutes(app) {
     c.set('orgId', org.id);
     audit(c, 'workspace.switched', 'organization', org.id);
     return ok(c, { currentOrganization: org, role: member.role });
+  });
+
+  app.post('/api/v1/auth/forgot-password', rateLimit({ limit: 6, windowMs: 900000, scope: 'forgot-pw' }), async (c) => {
+    const body = await parseBody(c, forgotPasswordSchema);
+    const email = normalizeEmail(body.email);
+    const user = one('SELECT * FROM users WHERE email = ?', [email]);
+    if (user) {
+      const token = randomToken(32);
+      const tokenHash = sha256(token);
+      const ts = nowIso();
+      const expiresAt = addMinutes(ts, 60); // 1 hour
+      run(
+        `INSERT INTO password_resets(id, user_id, token_hash, expires_at, created_at)
+         VALUES(?, ?, ?, ?, ?)`,
+        [uid('rst'), user.id, tokenHash, expiresAt, ts],
+      );
+      const host = c.req.header('host') || '127.0.0.1:3000';
+      const proto = c.req.header('x-forwarded-proto') || 'http';
+      const baseUrl = process.env.PUBLIC_BASE_URL || `${proto}://${host}`;
+      const resetUrl = `${baseUrl}/reset-password?token=${token}`;
+      await sendPasswordResetEmail({
+        to: user.email,
+        name: user.name,
+        resetUrl,
+        expiresInMinutes: 60,
+      });
+      audit(c, 'auth.forgot_password_requested', 'user', user.id);
+    }
+    // Always return uniform success message to avoid account enumeration
+    return ok(c, {
+      requested: true,
+      message: 'If an account exists with this email address, password reset instructions have been sent.',
+    });
+  });
+
+  app.post('/api/v1/auth/reset-password', rateLimit({ limit: 10, windowMs: 900000, scope: 'reset-pw' }), async (c) => {
+    const body = await parseBody(c, resetPasswordSchema);
+    const tokenHash = sha256(body.token);
+    const reset = one('SELECT * FROM password_resets WHERE token_hash = ? AND used_at IS NULL', [tokenHash]);
+    if (!reset || new Date(reset.expires_at).getTime() < Date.now()) {
+      fail(400, 'INVALID_OR_EXPIRED_TOKEN', 'This password reset link is invalid or has expired. Please request a new one.');
+    }
+    const ts = nowIso();
+    tx(() => {
+      run('UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?',
+        [makePasswordHash(body.password), ts, reset.user_id]);
+      run('UPDATE password_resets SET used_at = ? WHERE id = ?', [ts, reset.id]);
+      run('DELETE FROM sessions WHERE user_id = ?', [reset.user_id]);
+    });
+    audit(c, 'auth.password_reset_completed', 'user', reset.user_id);
+    return ok(c, {
+      reset: true,
+      message: 'Your password has been reset successfully. Please sign in with your new credentials.',
+    });
   });
 }
 
@@ -233,10 +290,24 @@ export function registerWorkspaceRoutes(app) {
         [id, org.id, email, body.role, sha256(token), user.id, role, addMinutes(ts, INVITE_TTL_HOURS * 60), ts],
       );
       audit(c, 'invitation.created', 'invitation', id, { role: body.role });
+      const host = c.req.header('host') || '127.0.0.1:3000';
+      const proto = c.req.header('x-forwarded-proto') || 'http';
+      const baseUrl = process.env.PUBLIC_BASE_URL || `${proto}://${host}`;
+      const inviteUrl = `${baseUrl}/invite/${token}`;
+
+      sendInvitationEmail({
+        to: email,
+        inviterName: user.name,
+        workspaceName: org.name,
+        role: body.role,
+        inviteUrl,
+      }).catch((e) => console.warn('[leadpulse:invite] Email dispatch warning:', e.message));
+
       // Plain token is returned ONCE and never logged or stored in clear text.
       return ok(c, {
         invitation: { id, email, role: body.role, expiresAt: addMinutes(ts, INVITE_TTL_HOURS * 60) },
         token,
+        inviteUrl,
         note: 'Copy this link now — the token cannot be shown again.',
       }, 201);
     });
@@ -313,16 +384,111 @@ export function registerWorkspaceRoutes(app) {
     return ok(c, { read: true });
   });
 
+  // Workspace AI settings
+  app.get('/api/v1/workspace/ai-settings', requireAuth, requirePermission('workspace:update'), async (c) => {
+    const { org } = resolveTenant(c);
+    const settings = getAiSettings(org.id);
+    return ok(c, settings);
+  });
+
+  app.patch('/api/v1/workspace/ai-settings', requireAuth, requirePermission('workspace:update'), async (c) => {
+    const { org } = resolveTenant(c);
+    const body = await parseBody(c, aiSettingsSchema);
+    const updated = saveAiSettings(org.id, body);
+    audit(c, 'workspace.ai_settings_updated', 'organization', org.id, { enabled: body.enabled, provider: body.provider });
+    return ok(c, updated);
+  });
+
+  // Workspace Email settings
+  app.get('/api/v1/workspace/email-settings', requireAuth, requirePermission('workspace:update'), async (c) => {
+    const { org } = resolveTenant(c);
+    const settings = getEmailSettings(org.id);
+    return ok(c, settings);
+  });
+
+  app.patch('/api/v1/workspace/email-settings', requireAuth, requirePermission('workspace:update'), async (c) => {
+    const { org } = resolveTenant(c);
+    const body = await parseBody(c, emailSettingsSchema);
+    const ts = nowIso();
+    const existing = one('SELECT organization_id FROM organization_email_settings WHERE organization_id = ?', [org.id]);
+    if (existing) {
+      run(
+        `UPDATE organization_email_settings
+         SET provider = COALESCE(?, provider), from_name = COALESCE(?, from_name),
+             from_email = COALESCE(?, from_email), reply_to = COALESCE(?, reply_to), updated_at = ?
+         WHERE organization_id = ?`,
+        [body.provider || null, body.fromName || null, body.fromEmail || null, body.replyTo || null, ts, org.id]
+      );
+    } else {
+      run(
+        `INSERT INTO organization_email_settings(organization_id, provider, from_name, from_email, reply_to, updated_at)
+         VALUES(?, ?, ?, ?, ?, ?)`,
+        [org.id, body.provider || 'console', body.fromName || 'LeadPulse CRM', body.fromEmail || 'notifications@leadpulse.example', body.replyTo || '', ts]
+      );
+    }
+    const updated = getEmailSettings(org.id);
+    audit(c, 'workspace.email_settings_updated', 'organization', org.id);
+    return ok(c, updated);
+  });
+
   /** Truthful configuration state. No adapter pretends to be active. */
   app.get('/api/v1/integrations', requireAuth, async (c) => {
-    resolveTenant(c);
+    const { org } = resolveTenant(c);
+    const ai = getAiSettings(org.id);
+    const email = getEmailSettings(org.id);
+    const hasResend = Boolean(process.env.RESEND_API_KEY);
+
     return ok(c, {
       items: [
-        { key: 'email', label: 'Transactional email', configured: false, state: 'disabled', reason: 'No RESEND_API_KEY/EMAIL_FROM and no email adapter enabled. In-app notifications are used instead.' },
-        { key: 'ai', label: 'AI assistance', configured: false, state: 'disabled', reason: 'No provider configured. No AI output is generated.' },
-        { key: 'meta', label: 'Meta lead forms', configured: false, state: 'disabled', reason: 'Requires official Marketing API access, app review and business verification. CSV/manual/webhook capture is the default.' },
-        { key: 'whatsapp', label: 'WhatsApp Cloud API', configured: false, state: 'disabled', reason: 'No approved account or templates. Only a user-initiated click-to-chat link is offered.' },
-        { key: 'billing', label: 'Payments', configured: false, state: 'disabled', reason: 'Pricing is unvalidated. No billing provider is connected and no payments are simulated.' },
+        {
+          key: 'email',
+          label: 'Transactional email',
+          configured: true,
+          state: hasResend ? 'live (Resend API)' : 'active (Console transport)',
+          reason: hasResend
+            ? 'Resend API key configured for live email delivery.'
+            : 'Zero-cost console transport active. Logs all emails to standard output.',
+          provider: email.provider,
+        },
+        {
+          key: 'ai',
+          label: 'AI assistance (Speed-to-lead)',
+          configured: ai.configured,
+          state: ai.enabled ? 'live' : ai.configured ? 'ready (opt-in needed)' : 'disabled',
+          reason: ai.configured
+            ? (ai.enabled ? `Active via ${ai.provider}. Generates instant lead briefs and response drafts.` : 'API key available. Enable in Workspace Settings to activate.')
+            : 'No GEMINI_API_KEY or GROQ_API_KEY configured in environment.',
+          provider: ai.provider,
+        },
+        {
+          key: 'storage',
+          label: 'Lead attachments & storage',
+          configured: true,
+          state: 'live (local disk storage)',
+          reason: 'Encrypted on-disk storage with SHA-256 validation. Cloudflare R2 compatible adapter.',
+          provider: 'local',
+        },
+        {
+          key: 'meta',
+          label: 'Meta lead forms',
+          configured: false,
+          state: 'disabled',
+          reason: 'Requires official Marketing API access, app review and business verification. CSV/manual/webhook capture is the default.',
+        },
+        {
+          key: 'whatsapp',
+          label: 'WhatsApp Cloud API',
+          configured: false,
+          state: 'disabled',
+          reason: 'No approved account or templates. Only a user-initiated click-to-chat link is offered.',
+        },
+        {
+          key: 'billing',
+          label: 'Payments',
+          configured: false,
+          state: 'disabled',
+          reason: 'Pricing is unvalidated. No billing provider is connected and no payments are simulated.',
+        },
       ],
     });
   });

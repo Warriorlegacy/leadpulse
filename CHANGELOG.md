@@ -2,7 +2,20 @@
 
 All notable changes to LeadPulse. Dates are in IST (UTC+05:30).
 
-## [Unreleased] — 2026-11-13
+## [0.2.0] — 2026-11-13
+
+Production-readiness upgrade: AI speed-to-lead engine, self-serve password recovery, email adapter, document attachments, Cloudflare dual runtime, and GitHub repository integration.
+
+### Added
+- **AI Speed-to-Lead Engine**: Integrated Google Gemini 2.5 Flash and Groq adapters behind strict workspace opt-in guardrails. Features include 3-bullet instant lead briefs (summary of intent, buying signals, next action) and authentic, human-to-human initial response drafters (Email, SMS, WhatsApp).
+- **Self-Serve Password Recovery & Email Service**: Implemented `POST /api/v1/auth/forgot-password` and `POST /api/v1/auth/reset-password` with single-use, 60-minute expiring tokens hashed with SHA-256. Automatic session revocation on password update. Email service supports zero-cost console logging and Resend HTTP API.
+- **Lead Document Attachments & Storage Adapter**: Document upload, download, and deletion (`POST/GET/DELETE /api/v1/leads/:id/attachments`) supporting PDF, images, CSV, and DOCX up to 10 MB with SHA-256 checksums and tenant-scoped storage.
+- **Cloudflare Dual Runtime Kit**: Added `cloudflare/wrangler.toml`, D1 migrations `0001_initial.sql` and `0002_production_upgrade.sql`, and `server/cloudflare-worker.js` for seamless deployment to Cloudflare Pages, Workers, D1, and R2.
+- **Workspace Settings Expansion**: Added dedicated management panels for Speed-to-Lead AI (provider selection, opt-in toggle) and Transactional Email (transport provider, sender metadata).
+- **Expanded Test Coverage**: Added API test cases for password recovery, AI settings opt-in enforcement, and document attachment lifecycle (total 36 Vitest tests passing).
+- **GitHub Version Control & CI**: Created repository `https://github.com/Warriorlegacy/leadpulse` and configured dual-job CI (`verify` and `browser`) running on push and PR.
+
+## [0.1.1] — 2026-11-13
 
 Browser acceptance coverage (T12) and the accessibility defects it exposed.
 

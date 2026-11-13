@@ -94,6 +94,59 @@ export interface Activity {
   created_at: string;
 }
 
+export interface LeadAttachment {
+  id: string;
+  organization_id: string;
+  lead_id: string;
+  filename: string;
+  mime_type: string;
+  size_bytes: number;
+  checksum: string;
+  uploader_id: string | null;
+  uploader_name?: string;
+  created_at: string;
+}
+
+export interface AiSettings {
+  enabled: boolean;
+  provider: string;
+  leadSummaryEnabled: boolean;
+  draftResponseEnabled: boolean;
+  availableProviders: {
+    gemini: boolean;
+    groq: boolean;
+    workersAi: boolean;
+  };
+  configured: boolean;
+}
+
+export interface AiBriefResponse {
+  available: boolean;
+  provider?: string;
+  brief?: string;
+  reason?: string;
+  error?: string;
+  generatedAt?: string;
+}
+
+export interface AiDraftResponse {
+  available: boolean;
+  provider?: string;
+  channel?: string;
+  tone?: string;
+  draft?: string;
+  reason?: string;
+  error?: string;
+  generatedAt?: string;
+}
+
+export interface EmailSettings {
+  provider: string;
+  fromName: string;
+  fromEmail: string;
+  replyTo: string;
+}
+
 let csrfToken = '';
 export const setCsrfToken = (value: string) => { csrfToken = value || ''; };
 
@@ -152,6 +205,25 @@ export async function downloadFile(path: string, filename: string): Promise<void
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
+}
+
+export async function uploadAttachment(leadId: string, file: File): Promise<{ attachment: LeadAttachment }> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const headers: Record<string, string> = {};
+  if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
+
+  const res = await fetch(`/api/v1/leads/${leadId}/attachments`, {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers,
+    body: formData,
+  });
+  const payload = await res.json().catch(() => null);
+  if (!res.ok) {
+    throw new ApiError(payload?.error?.message || 'Upload failed', res.status, payload?.error?.code || 'UPLOAD_FAILED');
+  }
+  return payload.data;
 }
 
 export const fmtDate = (value: string | null | undefined, withTime = false): string => {

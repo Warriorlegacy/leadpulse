@@ -6,7 +6,7 @@ import { expect, test, type Page } from '@playwright/test';
  */
 
 const APP_PAGES = ['/app', '/app/leads', '/app/pipeline', '/app/tasks', '/app/reports', '/app/data', '/app/team', '/app/settings', '/app/audit'];
-const PUBLIC_PAGES = ['/', '/pricing', '/privacy', '/terms'];
+const PUBLIC_PAGES = ['/', '/pricing', '/privacy', '/terms', '/forgot-password', '/reset-password?token=mock'];
 
 async function overflow(page: Page): Promise<number> {
   return page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);

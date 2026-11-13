@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { api, ApiError, downloadFile, fmtDate, type Organization } from '../api';
+import { api, ApiError, downloadFile, fmtDate, type Organization, type AiSettings, type EmailSettings } from '../api';
 import { Badge, Empty, ErrorNotice, Field, Icon, Modal, Spinner, useApi, useToast } from '../ui';
 import { useAuth } from '../App';
 
@@ -171,6 +171,8 @@ export function SettingsPage() {
   const webhooks = useApi<{ items: WebhookEndpoint[] }>(canConfigure ? '/webhooks/endpoints' : null);
   const integrations = useApi<{ items: Integration[] }>('/integrations');
   const pipeline = useApi<{ columns: { stage: StageConfig }[] }>('/pipeline');
+  const aiSettings = useApi<AiSettings>(canConfigure ? '/workspace/ai-settings' : null);
+  const emailSettings = useApi<EmailSettings>(canConfigure ? '/workspace/email-settings' : null);
 
   const [ws, setWs] = useState<Record<string, string | boolean>>({});
   const [captureForm, setCaptureForm] = useState<Record<string, unknown>>({});
@@ -180,6 +182,50 @@ export function SettingsPage() {
   const [deleteConfirm, setDeleteConfirm] = useState('');
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  // AI local settings state
+  const [aiEnabled, setAiEnabled] = useState<boolean | null>(null);
+  const [aiProvider, setAiProvider] = useState<string | null>(null);
+
+  // Email local settings state
+  const [emailProvider, setEmailProvider] = useState<string | null>(null);
+  const [emailFromName, setEmailFromName] = useState<string | null>(null);
+  const [emailFromAddress, setEmailFromAddress] = useState<string | null>(null);
+
+  const saveAi = async () => {
+    try {
+      await api('/workspace/ai-settings', {
+        method: 'PATCH',
+        body: {
+          enabled: aiEnabled ?? aiSettings.data?.enabled ?? false,
+          provider: aiProvider ?? aiSettings.data?.provider ?? 'gemini',
+        },
+      });
+      toast('AI settings saved.', 'success');
+      aiSettings.reload();
+      integrations.reload();
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : 'Failed to save AI settings', 'error');
+    }
+  };
+
+  const saveEmail = async () => {
+    try {
+      await api('/workspace/email-settings', {
+        method: 'PATCH',
+        body: {
+          provider: emailProvider ?? emailSettings.data?.provider ?? 'console',
+          fromName: emailFromName ?? emailSettings.data?.fromName ?? 'LeadPulse CRM',
+          fromEmail: emailFromAddress ?? emailSettings.data?.fromEmail ?? 'notifications@leadpulse.example',
+        },
+      });
+      toast('Email settings saved.', 'success');
+      emailSettings.reload();
+      integrations.reload();
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : 'Failed to save Email settings', 'error');
+    }
+  };
 
   const saveWorkspace = async () => {
     setBusy(true);
@@ -373,6 +419,112 @@ export function SettingsPage() {
               </tr>)}</tbody></table></div>}
           </div>
         </section>}
+
+        {canConfigure && (
+          <>
+            <section className="card">
+              <div className="card-head">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <h3>Speed-to-Lead AI Settings</h3>
+                  <Badge tone={aiSettings.data?.enabled ? 'amber' : 'neutral'}>
+                    {aiSettings.data?.enabled ? 'Opted In' : 'Disabled'}
+                  </Badge>
+                </div>
+              </div>
+              <div className="card-body stack" style={{ gap: 14 }}>
+                <p className="small muted">
+                  AI features generate 3-bullet instant lead briefs and personalized first-response drafts.
+                  Strictly opt-in: no lead data is transmitted without explicit workspace enablement.
+                </p>
+
+                <div className="row" style={{ alignItems: 'center', gap: 12 }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontWeight: 500 }}>
+                    <input
+                      type="checkbox"
+                      checked={aiEnabled ?? aiSettings.data?.enabled ?? false}
+                      onChange={(e) => setAiEnabled(e.target.checked)}
+                    />
+                    <span>Enable AI assistance for this workspace</span>
+                  </label>
+                </div>
+
+                <div className="grid-2" style={{ gap: 12 }}>
+                  <Field label="AI Model Provider" htmlFor="ai-prov">
+                    <select
+                      id="ai-prov"
+                      className="select"
+                      value={aiProvider ?? aiSettings.data?.provider ?? 'gemini'}
+                      onChange={(e) => setAiProvider(e.target.value)}
+                    >
+                      <option value="gemini">Google Gemini 2.5 Flash</option>
+                      <option value="groq">Groq (Llama / GPT-OSS)</option>
+                    </select>
+                  </Field>
+                </div>
+
+                <div className="row">
+                  <button className="btn btn-primary" onClick={() => void saveAi()}>
+                    Save AI settings
+                  </button>
+                </div>
+              </div>
+            </section>
+
+            <section className="card">
+              <div className="card-head">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <h3>Transactional Email Settings</h3>
+                  <Badge tone={emailSettings.data?.provider === 'resend' ? 'green' : 'blue'}>
+                    {emailSettings.data?.provider || 'Console'}
+                  </Badge>
+                </div>
+              </div>
+              <div className="card-body stack" style={{ gap: 14 }}>
+                <p className="small muted">
+                  Configure outgoing notification, invitation, and password-reset email transport.
+                </p>
+
+                <div className="grid-3" style={{ gap: 12 }}>
+                  <Field label="Transport provider" htmlFor="em-prov">
+                    <select
+                      id="em-prov"
+                      className="select"
+                      value={emailProvider ?? emailSettings.data?.provider ?? 'console'}
+                      onChange={(e) => setEmailProvider(e.target.value)}
+                    >
+                      <option value="console">Console (Zero-cost Dev/Test)</option>
+                      <option value="resend">Resend HTTP API</option>
+                      <option value="smtp">Standard SMTP</option>
+                    </select>
+                  </Field>
+                  <Field label="Sender name" htmlFor="em-from-name">
+                    <input
+                      id="em-from-name"
+                      className="input"
+                      value={emailFromName ?? emailSettings.data?.fromName ?? 'LeadPulse CRM'}
+                      onChange={(e) => setEmailFromName(e.target.value)}
+                    />
+                  </Field>
+                  <Field label="Sender address" htmlFor="em-from-email">
+                    <input
+                      id="em-from-email"
+                      className="input"
+                      type="email"
+                      value={emailFromAddress ?? emailSettings.data?.fromEmail ?? 'notifications@leadpulse.example'}
+                      onChange={(e) => setEmailFromAddress(e.target.value)}
+                    />
+                  </Field>
+                </div>
+
+                <div className="row">
+                  <button className="btn btn-primary" onClick={() => void saveEmail()}>
+                    Save email settings
+                  </button>
+                </div>
+              </div>
+            </section>
+          </>
+        )}
 
         <section className="card">
           <div className="card-head"><h3>Integrations</h3></div>

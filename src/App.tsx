@@ -4,7 +4,7 @@ import { api, setCsrfToken, type AuthPayload } from './api';
 import { Spinner, ToastProvider } from './ui';
 import { Shell } from './Shell';
 import { Landing, Pricing, Privacy, Terms, NotFound } from './pages/Public';
-import { AuthPage, AcceptInvitePage } from './pages/Auth';
+import { AuthPage, AcceptInvitePage, ForgotPasswordPage, ResetPasswordPage } from './pages/Auth';
 import { Dashboard } from './pages/Dashboard';
 import { LeadsPage, LeadDetailPage } from './pages/Leads';
 import { PipelinePage } from './pages/Pipeline';
@@ -79,6 +79,8 @@ function AppRoutes() {
       <Route path="/terms" element={<Terms />} />
       <Route path="/login" element={<AuthPage mode="login" />} />
       <Route path="/signup" element={<AuthPage mode="signup" />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/accept/:token" element={<AcceptInvitePage />} />
       <Route path="/form/:publicId" element={<CapturePage />} />
       <Route path="/app" element={<Protected><Shell /></Protected>}>

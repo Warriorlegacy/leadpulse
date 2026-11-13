@@ -1,6 +1,9 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useCallback, useEffect } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { api, ApiError, downloadFile, fmtDate, relative, type Lead, type Stage } from '../api';
+import {
+  api, ApiError, downloadFile, fmtDate, relative, uploadAttachment,
+  type Lead, type Stage, type LeadAttachment, type AiBriefResponse, type AiDraftResponse,
+} from '../api';
 import { Badge, Empty, ErrorNotice, Field, Icon, Modal, Spinner, useApi, useToast } from '../ui';
 
 interface LeadListResponse {
@@ -259,7 +262,7 @@ export function LeadDetailPage() {
   const navigate = useNavigate();
   const { data, loading, error, reload } = useApi<DetailResponse>(id ? `/leads/${id}` : null);
   const { data: facets } = useApi<LeadListResponse>('/leads?pageSize=1');
-  const [tab, setTab] = useState<'timeline' | 'tasks' | 'history'>('timeline');
+  const [tab, setTab] = useState<'timeline' | 'tasks' | 'attachments' | 'history'>('timeline');
   const [activityType, setActivityType] = useState('call');
   const [activityBody, setActivityBody] = useState('');
   const [taskTitle, setTaskTitle] = useState('');
@@ -269,11 +272,115 @@ export function LeadDetailPage() {
   const [confirmArchive, setConfirmArchive] = useState(false);
   const [busy, setBusy] = useState(false);
 
+  // AI Speed-to-lead state
+  const [aiBrief, setAiBrief] = useState<AiBriefResponse | null>(null);
+  const [aiBriefLoading, setAiBriefLoading] = useState(false);
+  const [aiDraftOpen, setAiDraftOpen] = useState(false);
+  const [aiDraftChannel, setAiDraftChannel] = useState<'email' | 'sms' | 'whatsapp'>('email');
+  const [aiDraftTone, setAiDraftTone] = useState<'professional' | 'friendly' | 'direct' | 'urgent'>('professional');
+  const [aiDraftInstructions, setAiDraftInstructions] = useState('');
+  const [aiDraftResult, setAiDraftResult] = useState<string | null>(null);
+  const [aiDraftLoading, setAiDraftLoading] = useState(false);
+
+  // Attachments state
+  const [attachments, setAttachments] = useState<LeadAttachment[]>([]);
+  const [attachmentsLoading, setAttachmentsLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+
   const act = async (fn: () => Promise<unknown>, success: string) => {
     setBusy(true);
     try { await fn(); toast(success, 'success'); reload(); }
     catch (err) { toast(err instanceof ApiError ? err.message : 'Action failed', 'error'); }
     finally { setBusy(false); }
+  };
+
+  const loadAttachments = useCallback(async () => {
+    if (!id) return;
+    setAttachmentsLoading(true);
+    try {
+      const res = await api<{ items: LeadAttachment[] }>(`/leads/${id}/attachments`);
+      setAttachments(res.items);
+    } catch { /* ignore */ }
+    finally { setAttachmentsLoading(false); }
+  }, [id]);
+
+  useEffect(() => {
+    if (tab === 'attachments') void loadAttachments();
+  }, [tab, loadAttachments]);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !id) return;
+    setUploading(true);
+    try {
+      await uploadAttachment(id, file);
+      toast('Attachment uploaded successfully.', 'success');
+      void loadAttachments();
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : 'Upload failed.', 'error');
+    } finally {
+      setUploading(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleDeleteAttachment = async (attachmentId: string) => {
+    if (!id) return;
+    try {
+      await api(`/leads/${id}/attachments/${attachmentId}`, { method: 'DELETE' });
+      toast('Attachment deleted.', 'success');
+      void loadAttachments();
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : 'Delete failed.', 'error');
+    }
+  };
+
+  const handleGenerateBrief = async () => {
+    if (!id) return;
+    setAiBriefLoading(true);
+    try {
+      const res = await api<AiBriefResponse>(`/leads/${id}/ai/brief`, { method: 'POST', body: {} });
+      setAiBrief(res);
+      if (res.available) toast('AI brief generated.', 'success');
+      else toast(res.reason || res.error || 'AI not available.', 'error');
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : 'Failed to generate brief.', 'error');
+    } finally {
+      setAiBriefLoading(false);
+    }
+  };
+
+  const handleGenerateDraft = async () => {
+    if (!id) return;
+    setAiDraftLoading(true);
+    try {
+      const res = await api<AiDraftResponse>(`/leads/${id}/ai/draft-response`, {
+        method: 'POST',
+        body: { channel: aiDraftChannel, tone: aiDraftTone, instructions: aiDraftInstructions },
+      });
+      if (res.available && res.draft) {
+        setAiDraftResult(res.draft);
+        toast('Response draft generated.', 'success');
+      } else {
+        toast(res.reason || res.error || 'AI drafting not available.', 'error');
+      }
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : 'Failed to generate draft.', 'error');
+    } finally {
+      setAiDraftLoading(false);
+    }
+  };
+
+  const handleLogDraft = async () => {
+    if (!id || !aiDraftResult) return;
+    await act(() => api(`/leads/${id}/activities`, {
+      method: 'POST',
+      body: {
+        type: aiDraftChannel === 'email' ? 'email' : 'note',
+        body: `[AI Drafted ${aiDraftChannel.toUpperCase()} (${aiDraftTone})]\n${aiDraftResult}`,
+      },
+    }), 'Draft logged to timeline.');
+    setAiDraftOpen(false);
   };
 
   if (loading) return <div className="page"><Spinner label="Loading lead" /></div>;
@@ -346,9 +453,9 @@ export function LeadDetailPage() {
           <section className="card">
             <div className="card-head">
               <div className="tabs" style={{ margin: 0, border: 0 }}>
-                {(['timeline', 'tasks', 'history'] as const).map((t) => (
+                {(['timeline', 'tasks', 'attachments', 'history'] as const).map((t) => (
                   <button key={t} className={`tab ${tab === t ? 'active' : ''}`} onClick={() => setTab(t)}>
-                    {t === 'timeline' ? 'Timeline' : t === 'tasks' ? `Tasks (${data.tasks.length})` : 'Stage history'}
+                    {t === 'timeline' ? 'Timeline' : t === 'tasks' ? `Tasks (${data.tasks.length})` : t === 'attachments' ? `Files (${attachments.length})` : 'Stage history'}
                   </button>
                 ))}
               </div>
@@ -385,6 +492,59 @@ export function LeadDetailPage() {
                         <td>{t.completed_at ? <Badge tone="green">Done</Badge> : <Badge tone={Date.parse(t.due_at) < Date.now() ? 'red' : 'neutral'}>{Date.parse(t.due_at) < Date.now() ? 'Overdue' : 'Open'}</Badge>}</td>
                       </tr>)}</tbody></table></div>}
                 </>
+              )}
+              {tab === 'attachments' && (
+                <div>
+                  <div className="row-between" style={{ marginBottom: 16, padding: '12px', background: 'var(--card-subtle)', borderRadius: 6, border: '1px dashed var(--line)' }}>
+                    <div>
+                      <strong style={{ display: 'block', fontSize: 13 }}>Upload document or asset</strong>
+                      <span className="small muted">PDF, PNG, JPG, CSV, DOCX (up to 10 MB). Scoped to this workspace.</span>
+                    </div>
+                    <label className={`btn btn-primary ${uploading ? 'disabled' : ''}`} style={{ cursor: 'pointer', margin: 0 }}>
+                      <Icon name="upload" size={15} /> {uploading ? 'Uploading…' : 'Choose file'}
+                      <input type="file" onChange={(e) => void handleFileUpload(e)} disabled={uploading} style={{ display: 'none' }} />
+                    </label>
+                  </div>
+                  {attachmentsLoading ? <Spinner label="Loading attachments" /> : attachments.length === 0 ? (
+                    <Empty icon="upload" title="No attachments yet" body="Upload RFP briefs, client emails, audit notes, or signed agreements." />
+                  ) : (
+                    <div className="table-wrap">
+                      <table className="table">
+                        <thead>
+                          <tr>
+                            <th>Filename</th>
+                            <th>Size</th>
+                            <th>Uploaded by</th>
+                            <th>Date</th>
+                            <th style={{ textAlign: 'right' }}>Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {attachments.map((att) => (
+                            <tr key={att.id}>
+                              <td>
+                                <a href={`/api/v1/leads/${lead.id}/attachments/${att.id}/download`} target="_blank" rel="noopener noreferrer" className="cell-strong" style={{ color: 'var(--accent-dark)' }}>
+                                  {att.filename}
+                                </a>
+                              </td>
+                              <td className="cell-sub">{Math.round(att.size_bytes / 1024)} KB</td>
+                              <td className="cell-sub">{att.uploader_name || 'Team member'}</td>
+                              <td className="cell-sub">{fmtDate(att.created_at, true)}</td>
+                              <td className="cell-actions" style={{ textAlign: 'right' }}>
+                                <a href={`/api/v1/leads/${lead.id}/attachments/${att.id}/download`} className="btn btn-small" title="Download file">
+                                  <Icon name="download" size={13} />
+                                </a>
+                                <button className="btn btn-small btn-danger" onClick={() => void handleDeleteAttachment(att.id)} title="Delete file">
+                                  <Icon name="trash" size={13} />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
               )}
               {tab === 'history' && (
                 <div className="table-wrap"><table className="table"><thead><tr><th>From</th><th>To</th><th>Reason</th><th>By</th><th>When</th></tr></thead>
@@ -447,8 +607,98 @@ export function LeadDetailPage() {
             <div className="card-head"><h3>Notes</h3></div>
             <div className="card-body"><p style={{ whiteSpace: 'pre-wrap', fontSize: 13 }}>{lead.notes || 'No notes recorded yet.'}</p></div>
           </section>
+
+          {/* AI Speed-to-lead Assistant Card */}
+          <section className="card" style={{ border: '1px solid #fcd34d', background: '#fffbeb' }}>
+            <div className="card-head" style={{ borderBottom: '1px solid #fde68a' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ color: 'var(--accent-dark)', display: 'flex' }}><Icon name="pulse" size={16} /></div>
+                <h3 style={{ margin: 0, color: '#92400e', fontSize: 14 }}>Speed-to-Lead AI</h3>
+              </div>
+              <Badge tone="amber">Active</Badge>
+            </div>
+            <div className="card-body stack" style={{ gap: 12 }}>
+              <p className="small muted">
+                Synthesize inquiry signals into an actionable sales brief or draft an authentic initial outreach message.
+              </p>
+              <div className="row" style={{ gap: 8 }}>
+                <button className="btn btn-primary btn-small" disabled={aiBriefLoading} onClick={() => void handleGenerateBrief()}>
+                  {aiBriefLoading ? 'Synthesizing…' : 'Generate AI Brief'}
+                </button>
+                <button className="btn btn-small" onClick={() => { setAiDraftOpen(true); setAiDraftResult(null); }}>
+                  Draft response
+                </button>
+              </div>
+
+              {aiBrief?.available && aiBrief.brief && (
+                <div style={{ padding: '12px', background: '#ffffff', borderRadius: 6, border: '1px solid #fcd34d', fontSize: 13, lineHeight: 1.6 }}>
+                  <div style={{ fontWeight: 600, color: '#92400e', marginBottom: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>Lead Brief ({aiBrief.provider})</span>
+                    <span className="mono" style={{ fontSize: 11, fontWeight: 400, color: '#b45309' }}>{fmtDate(aiBrief.generatedAt, true)}</span>
+                  </div>
+                  <div style={{ whiteSpace: 'pre-wrap', color: '#1c1917' }}>{aiBrief.brief}</div>
+                </div>
+              )}
+            </div>
+          </section>
         </div>
       </div>
+
+      {/* AI Response Drafter Modal */}
+      <Modal open={aiDraftOpen} title="AI Response Drafter" onClose={() => setAiDraftOpen(false)}
+        footer={
+          <>
+            <button className="btn" onClick={() => setAiDraftOpen(false)}>Close</button>
+            {aiDraftResult && (
+              <>
+                <button className="btn" onClick={() => { void navigator.clipboard.writeText(aiDraftResult); toast('Draft copied to clipboard.', 'success'); }}>
+                  Copy draft
+                </button>
+                <button className="btn btn-primary" onClick={() => void handleLogDraft()}>
+                  Log to activity timeline
+                </button>
+              </>
+            )}
+          </>
+        }>
+        <div className="stack" style={{ gap: 14 }}>
+          <p className="small muted">
+            Generate an authentic, human-to-human first response tailored to this lead without generic filler phrases.
+          </p>
+          <div className="grid-3" style={{ gap: 10 }}>
+            <Field label="Channel" htmlFor="ai-channel">
+              <select id="ai-channel" className="select" value={aiDraftChannel} onChange={(e) => setAiDraftChannel(e.target.value as any)}>
+                <option value="email">Email</option>
+                <option value="sms">SMS</option>
+                <option value="whatsapp">WhatsApp</option>
+              </select>
+            </Field>
+            <Field label="Tone" htmlFor="ai-tone">
+              <select id="ai-tone" className="select" value={aiDraftTone} onChange={(e) => setAiDraftTone(e.target.value as any)}>
+                <option value="professional">Professional</option>
+                <option value="friendly">Friendly</option>
+                <option value="direct">Direct & concise</option>
+                <option value="urgent">Urgent / high-touch</option>
+              </select>
+            </Field>
+          </div>
+          <Field label="Custom instructions (optional)" htmlFor="ai-inst" hint="e.g. mention our 2-week trial or free audit">
+            <input id="ai-inst" className="input" placeholder="e.g. emphasize free consultation" value={aiDraftInstructions} onChange={(e) => setAiDraftInstructions(e.target.value)} />
+          </Field>
+          <button className="btn btn-primary" disabled={aiDraftLoading} onClick={() => void handleGenerateDraft()} style={{ alignSelf: 'flex-start' }}>
+            {aiDraftLoading ? 'Drafting response…' : 'Generate response draft'}
+          </button>
+
+          {aiDraftResult && (
+            <div style={{ marginTop: 12, padding: 14, background: 'var(--card-subtle)', borderRadius: 6, border: '1px solid var(--line)' }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 6 }}>
+                Generated {aiDraftChannel.toUpperCase()} Draft:
+              </div>
+              <textarea className="textarea" readOnly rows={7} value={aiDraftResult} style={{ width: '100%', fontFamily: 'inherit', fontSize: 13, lineHeight: 1.5 }} />
+            </div>
+          )}
+        </div>
+      </Modal>
 
       <EditLeadModal open={editOpen} onClose={() => setEditOpen(false)} lead={lead} onSaved={() => { setEditOpen(false); reload(); toast('Lead updated.', 'success'); }} />
       <Modal open={confirmArchive} title={lead.archived_at ? 'Restore this lead?' : 'Archive this lead?'} onClose={() => setConfirmArchive(false)}

@@ -1,13 +1,21 @@
+import fs from 'node:fs';
 import { one, all, run, audit } from '../context.js';
 import { ok, fail, rateLimit } from '../security.js';
 import { requireAuth } from '../auth.js';
 import { resolveTenant, requirePermission, visibleLead, can } from '../rbac.js';
-import { parseBody, parseQuery, leadCreateSchema, leadUpdateSchema, leadQuerySchema, exportQuerySchema, mergeSchema } from '../validate.js';
+import {
+  parseBody, parseQuery, leadCreateSchema, leadUpdateSchema, leadQuerySchema,
+  exportQuerySchema, mergeSchema, aiDraftSchema,
+} from '../validate.js';
 import {
   LEAD_SELECT, hydrate, createLead, updateLead, duplicateCandidates, mergeLeads,
   pagination,
 } from '../leads-service.js';
 import { nowIso, text, toCsv, clampInt } from '../util.js';
+import { generateLeadBrief, generateDraftResponse } from '../ai-service.js';
+import {
+  saveLeadAttachment, listLeadAttachments, getLeadAttachment, deleteLeadAttachment,
+} from '../storage-service.js';
 
 const SORT_COLUMNS = {
   created_at: 'l.created_at', updated_at: 'l.updated_at', name: 'l.name',
@@ -191,4 +199,81 @@ export function registerLeadRoutes(app) {
       audit(c, 'lead.merged', 'lead', target.id, { source: source.id });
       return ok(c, { lead: hydrate(org.id, merged) });
     });
+
+  // AI speed-to-lead brief
+  app.post('/api/v1/leads/:id/ai/brief', requireAuth, rateLimit({ limit: 20, windowMs: 60000, scope: 'ai_brief' }), async (c) => {
+    const lead = visibleLead(c, c.req.param('id'));
+    const { org } = resolveTenant(c);
+    const activities = all('SELECT type, body, created_at FROM activities WHERE lead_id = ? ORDER BY created_at DESC LIMIT 10', [lead.id]);
+    const stage = one('SELECT name FROM pipeline_stages WHERE id = ?', [lead.stage_id])?.name || 'Open';
+    const result = await generateLeadBrief(org.id, lead, activities, stage);
+    if (result.available) {
+      audit(c, 'lead.ai_brief_generated', 'lead', lead.id);
+    }
+    return ok(c, result);
+  });
+
+  // AI speed-to-lead response drafter
+  app.post('/api/v1/leads/:id/ai/draft-response', requireAuth, rateLimit({ limit: 20, windowMs: 60000, scope: 'ai_draft' }), async (c) => {
+    const body = await parseBody(c, aiDraftSchema);
+    const lead = visibleLead(c, c.req.param('id'));
+    const { org } = resolveTenant(c);
+    const result = await generateDraftResponse(org.id, lead, body);
+    if (result.available) {
+      audit(c, 'lead.ai_draft_generated', 'lead', lead.id, { channel: body.channel });
+    }
+    return ok(c, result);
+  });
+
+  // Lead attachments
+  app.get('/api/v1/leads/:id/attachments', requireAuth, async (c) => {
+    const lead = visibleLead(c, c.req.param('id'));
+    const { org } = resolveTenant(c);
+    const items = listLeadAttachments(org.id, lead.id);
+    return ok(c, { items });
+  });
+
+  app.post('/api/v1/leads/:id/attachments', requireAuth, requirePermission('leads:edit'), async (c) => {
+    const lead = visibleLead(c, c.req.param('id'));
+    const { org, user } = resolveTenant(c);
+    const body = await c.req.parseBody();
+    const file = body['file'];
+    if (!file || typeof file === 'string') {
+      fail(400, 'INVALID_FILE', 'A valid file upload is required.');
+    }
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    try {
+      const attachment = await saveLeadAttachment(org.id, lead.id, user.id, {
+        filename: file.name,
+        mimeType: file.type,
+        buffer,
+      });
+      audit(c, 'lead.attachment_uploaded', 'lead_attachment', attachment.id, { filename: file.name });
+      return ok(c, { attachment }, 201);
+    } catch (err) {
+      fail(400, 'UPLOAD_FAILED', err.message);
+    }
+  });
+
+  app.get('/api/v1/leads/:id/attachments/:attachmentId/download', requireAuth, async (c) => {
+    const lead = visibleLead(c, c.req.param('id'));
+    const { org } = resolveTenant(c);
+    const item = getLeadAttachment(org.id, lead.id, c.req.param('attachmentId'));
+    if (!item) fail(404, 'NOT_FOUND', 'Attachment not found.');
+    const fileStream = fs.createReadStream(item.filePath);
+    c.header('Content-Type', item.record.mime_type || 'application/octet-stream');
+    c.header('Content-Disposition', `attachment; filename="${encodeURIComponent(item.record.filename)}"`);
+    c.header('X-Content-Type-Options', 'nosniff');
+    return c.body(fileStream);
+  });
+
+  app.delete('/api/v1/leads/:id/attachments/:attachmentId', requireAuth, requirePermission('leads:edit'), async (c) => {
+    const lead = visibleLead(c, c.req.param('id'));
+    const { org } = resolveTenant(c);
+    const deleted = deleteLeadAttachment(org.id, lead.id, c.req.param('attachmentId'));
+    if (!deleted) fail(404, 'NOT_FOUND', 'Attachment not found.');
+    audit(c, 'lead.attachment_deleted', 'lead_attachment', c.req.param('attachmentId'));
+    return ok(c, { deleted: true });
+  });
 }

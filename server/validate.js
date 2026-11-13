@@ -187,3 +187,33 @@ export const reportQuerySchema = z.object({
 export const exportQuerySchema = leadQuerySchema;
 
 export const mergeSchema = z.object({ sourceLeadId: short(80).min(1) });
+
+export const forgotPasswordSchema = z.object({
+  email: z.string().trim().email().max(200),
+});
+
+export const resetPasswordSchema = z.object({
+  token: z.string().trim().min(16).max(200),
+  password: z.string().min(8).max(200),
+});
+
+export const aiSettingsSchema = z.object({
+  enabled: z.boolean().optional(),
+  provider: z.enum(['gemini', 'groq', 'workers-ai']).optional(),
+  leadSummaryEnabled: z.boolean().optional(),
+  draftResponseEnabled: z.boolean().optional(),
+});
+
+export const aiDraftSchema = z.object({
+  channel: z.enum(['email', 'sms', 'whatsapp']).optional().default('email'),
+  tone: z.enum(['professional', 'friendly', 'direct', 'urgent']).optional().default('professional'),
+  instructions: optionalShort(500),
+});
+
+export const emailSettingsSchema = z.object({
+  provider: z.enum(['console', 'resend', 'smtp']).optional(),
+  fromName: short(120).min(1).optional(),
+  fromEmail: z.string().trim().email().max(200).optional(),
+  replyTo: optionalShort(200),
+});
+

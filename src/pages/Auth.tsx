@@ -64,6 +64,13 @@ export function AuthPage({ mode }: { mode: 'login' | 'signup' }) {
               <input id="email" className="input" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" placeholder="you@company.com" />
             </Field>
             <Field label="Password" htmlFor="password" hint={isSignup ? 'At least 8 characters.' : undefined}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
+                {!isSignup && (
+                  <Link to="/forgot-password" style={{ fontSize: 12, color: 'var(--accent-dark)', fontWeight: 500, marginLeft: 'auto' }}>
+                    Forgot password?
+                  </Link>
+                )}
+              </div>
               <input id="password" className="input" type="password" required minLength={isSignup ? 8 : 1} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete={isSignup ? 'new-password' : 'current-password'} />
             </Field>
             <button className="btn btn-primary" type="submit" disabled={busy} style={{ marginTop: 4 }}>
@@ -125,6 +132,151 @@ export function AcceptInvitePage() {
           {status === 'done' && <div className="notice notice-success" style={{ marginTop: 16 }}><Icon name="check" size={17} /><span>{message}</span></div>}
           {status === 'error' && <div className="notice notice-error" style={{ marginTop: 16 }}><Icon name="alert" size={17} /><span>{message}</span></div>}
           {(status === 'done' || status === 'error') && <p style={{ marginTop: 16 }}><Link className="btn" to="/app">Go to workspace</Link></p>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function ForgotPasswordPage() {
+  const [email, setEmail] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true); setError(null);
+    try {
+      await api('/auth/forgot-password', {
+        method: 'POST',
+        body: { email },
+      });
+      setSubmitted(true);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not process password reset.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="auth-wrap">
+      <div className="auth-art">
+        <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div className="brand-mark"><Icon name="pulse" size={19} /></div>
+          <span className="brand-name">LeadPulse</span>
+        </Link>
+        <blockquote>Every lead has an owner, a next action and a measurable response time.</blockquote>
+        <small>Account security · expiring single-use reset links</small>
+      </div>
+      <div className="auth-form">
+        <div className="auth-card">
+          <h2>Reset password</h2>
+          <p>Enter the email address associated with your account, and we'll send you an expiring link to reset your password.</p>
+          {error && <div className="notice notice-error" style={{ marginBottom: 16 }} role="alert"><Icon name="alert" size={17} /><span>{error}</span></div>}
+          {submitted ? (
+            <div className="notice notice-success" style={{ margin: '16px 0' }}>
+              <Icon name="check" size={17} />
+              <span>If an account exists with <strong>{email}</strong>, instructions to reset your password have been dispatched. Please check your inbox.</span>
+            </div>
+          ) : (
+            <form onSubmit={(e) => void submit(e)} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <Field label="Account email" htmlFor="reset-email">
+                <input id="reset-email" className="input" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" placeholder="you@company.com" />
+              </Field>
+              <button className="btn btn-primary" type="submit" disabled={busy} style={{ marginTop: 4 }}>
+                {busy ? 'Sending link…' : 'Send reset link'} {!busy && <Icon name="arrow" size={15} />}
+              </button>
+            </form>
+          )}
+          <p style={{ marginTop: 24, fontSize: 13, color: 'var(--muted)' }}>
+            Remembered your credentials?{' '}
+            <Link to="/login" style={{ color: 'var(--accent-dark)', fontWeight: 600 }}>
+              Return to sign in
+            </Link>
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function ResetPasswordPage() {
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const token = searchParams.get('token') || '';
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (password !== confirmPassword) {
+      setError('Passwords do not match.');
+      return;
+    }
+    setBusy(true); setError(null);
+    try {
+      await api('/auth/reset-password', {
+        method: 'POST',
+        body: { token, password },
+      });
+      setDone(true);
+      setTimeout(() => navigate('/login'), 2500);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not reset password.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="auth-wrap">
+      <div className="auth-art">
+        <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div className="brand-mark"><Icon name="pulse" size={19} /></div>
+          <span className="brand-name">LeadPulse</span>
+        </Link>
+        <blockquote>Choose a strong, unique password for your workspace account.</blockquote>
+      </div>
+      <div className="auth-form">
+        <div className="auth-card">
+          <h2>Set new password</h2>
+          {!token ? (
+            <div className="notice notice-error" style={{ margin: '16px 0' }}>
+              <Icon name="alert" size={17} />
+              <span>Invalid reset link: Missing verification token. Please request a new link.</span>
+            </div>
+          ) : done ? (
+            <div className="notice notice-success" style={{ margin: '16px 0' }}>
+              <Icon name="check" size={17} />
+              <span>Password successfully reset! Redirecting to sign in…</span>
+            </div>
+          ) : (
+            <>
+              <p>Enter your new password below (at least 8 characters).</p>
+              {error && <div className="notice notice-error" style={{ marginBottom: 16 }} role="alert"><Icon name="alert" size={17} /><span>{error}</span></div>}
+              <form onSubmit={(e) => void submit(e)} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <Field label="New password" htmlFor="new-pw" hint="At least 8 characters.">
+                  <input id="new-pw" className="input" type="password" required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" />
+                </Field>
+                <Field label="Confirm new password" htmlFor="confirm-pw">
+                  <input id="confirm-pw" className="input" type="password" required minLength={8} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} autoComplete="new-password" />
+                </Field>
+                <button className="btn btn-primary" type="submit" disabled={busy} style={{ marginTop: 4 }}>
+                  {busy ? 'Updating password…' : 'Save new password'} {!busy && <Icon name="check" size={15} />}
+                </button>
+              </form>
+            </>
+          )}
+          <p style={{ marginTop: 24, fontSize: 13, color: 'var(--muted)' }}>
+            <Link to="/login" style={{ color: 'var(--accent-dark)', fontWeight: 600 }}>
+              Return to sign in
+            </Link>
+          </p>
         </div>
       </div>
     </div>

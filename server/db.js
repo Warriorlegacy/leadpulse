@@ -148,6 +148,13 @@ export async function initDb() {
       [1, 'initial schema', new Date().toISOString()],
     );
   }
+  const v2 = instance.get('SELECT version FROM schema_migrations WHERE version = 2');
+  if (!v2) {
+    instance.run(
+      'INSERT INTO schema_migrations(version, name, applied_at) VALUES(?, ?, ?)',
+      [2, 'production upgrade (password_resets, lead_attachments, organization_ai_settings, organization_email_settings)', new Date().toISOString()],
+    );
+  }
   instance.persist();
   return instance;
 }
@@ -158,5 +165,5 @@ export function getDb() {
 }
 
 export function dbInfo() {
-  return { driver: kind, file: ephemeral ? ':memory:' : path.basename(file), durable: !ephemeral, migrations: [1] };
+  return { driver: kind, file: ephemeral ? ':memory:' : path.basename(file), durable: !ephemeral, migrations: [1, 2] };
 }
