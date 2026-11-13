@@ -16,6 +16,7 @@ const MIME = {
   '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg',
   '.ico': 'image/x-icon', '.webp': 'image/webp', '.woff2': 'font/woff2',
   '.map': 'application/json; charset=utf-8', '.txt': 'text/plain; charset=utf-8',
+  '.xml': 'application/xml; charset=utf-8',
 };
 
 const FAVICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#12202f"/><path d="M8 34h12l6-14 9 26 6-12h15" fill="none" stroke="#f0a63a" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
@@ -33,8 +34,13 @@ function attachStatic(app) {
       return c.body(FAVICON);
     }
     if (pathname === '/robots.txt') {
+      const robotsPath = path.join(publicDir, 'robots.txt');
+      if (fs.existsSync(robotsPath)) {
+        c.header('Content-Type', 'text/plain; charset=utf-8');
+        return c.body(fs.readFileSync(robotsPath, 'utf8'));
+      }
       c.header('Content-Type', 'text/plain; charset=utf-8');
-      return c.body('User-agent: *\nAllow: /$\nAllow: /pricing\nAllow: /privacy\nAllow: /terms\nDisallow: /app\nDisallow: /api/\nDisallow: /form/\n');
+      return c.body('User-agent: *\nAllow: /$\nAllow: /pricing\nAllow: /privacy\nAllow: /terms\nDisallow: /app\nDisallow: /api/\nSitemap: https://leadpulse.rajpiyush092.workers.dev/sitemap.xml\n');
     }
     if (pathname.startsWith('/api/')) {
       return c.json({ error: { code: 'NOT_FOUND', message: 'No API route matches this request.' } }, 404);

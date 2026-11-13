@@ -1,0 +1,21 @@
+# LeadPulse
+
+> LeadPulse is a high-velocity, multi-tenant lead response CRM built for agencies and service businesses. It enforces explicit lead ownership, scheduled next actions, and uncompromised response-time measurement (Speed-to-Lead).
+
+## Key Capabilities
+- **Speed-to-Lead SLA Clock**: Measures the exact interval between lead capture and first verified human response; computes medians against configured business hours.
+- **Strict Lead Ownership**: Explicit single-agent or manager assignment prevents leads from disappearing into unmonitored team inboxes.
+- **AI Speed-to-Lead Engine**: Instant 3-bullet briefings (Intent, Urgency, Recommended Action) and contextual response drafts across Email, SMS, and WhatsApp powered by Google Gemini and Groq.
+- **Deduplication Engine**: Automatic duplicate candidate detection, side-by-side comparison, and field-level merging.
+- **Document Attachments**: Direct document uploads (briefs, RFPs, proposals) with SHA-256 verification and local or Cloudflare R2 storage.
+- **Dual Runtime Architecture**: Runs with zero dependencies on Node.js (SQLite WAL) or on edge serverless Cloudflare Workers with Cloudflare D1.
+
+## Target Audience
+- Digital Marketing & Creative Agencies
+- Professional Services & B2B Consultants
+- Local High-Ticket Services (HVAC, Solar, Legal, Real Estate)
+
+## Links
+- Homepage: https://leadpulse.rajpiyush092.workers.dev/
+- Pricing & Pilot Tiers: https://leadpulse.rajpiyush092.workers.dev/pricing
+- Open Source Repository: https://github.com/Warriorlegacy/leadpulse

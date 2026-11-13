@@ -19,3 +19,4 @@ migrations_dir = "cloudflare/migrations"
 [vars]
 ALLOW_DEMO = "true"
 ENVIRONMENT = "production"
+

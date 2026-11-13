@@ -1,0 +1,48 @@
+# LeadPulse — Full Technical & Product Specification
+
+## Mission & Problem Statement
+In B2B agencies and high-ticket service industries, over 70% of inbound enquiries are lost due to slow response times and ambiguous lead ownership. Standard enterprise CRMs (Salesforce, HubSpot) are cluttered with administrative friction, complex onboarding, and lagging pipeline dashboards that fail to enforce immediate follow-up.
+
+LeadPulse is purpose-built around one core metric: Speed-to-Lead. It guarantees that every enquiry captured via web form, webhook, or CSV has a named owner, a calendar-anchored next action, and a verifiable response timer that stops only when a real human outreach is executed.
+
+## Key Feature Matrix
+
+### 1. Speed-to-Lead Timer & SLA Enforcement
+- Tracks precise elapsed minutes from `created_at` to `first_response_at`.
+- First response is captured once and locked permanently to prevent metric manipulation.
+- SLA calculations respect tenant-specific working hours and timezones.
+- Visual overdue indicators alert managers when an unresponded lead breaches the SLA threshold.
+
+### 2. Multi-Tenant RBAC & Security Isolation
+- 4-Tier Role-Based Access Control: Workspace Owner, Workspace Admin, Team Manager, and Agent.
+- Tenant isolation is strictly enforced at the database query level via session-derived `organization_id`.
+- CSRF double-submit token validation, rate-limiting on sensitive endpoints, salted scrypt password hashing, and SHA-256 session tokens.
+
+### 3. AI Speed-to-Lead Copilot
+- Supports Google Gemini 2.5 Flash and Groq (LLaMA 3.3 70B) with streaming response drafting.
+- Generates 3-bullet structured briefings: Intent, Urgency Signals, and Recommended Immediate Action.
+- Generates personalized multi-channel drafts (Email, SMS, WhatsApp) eliminating writer's block for frontline sales reps.
+- Full workspace privacy opt-in controls: zero customer data leaves the perimeter unless explicitly enabled by an admin.
+
+### 4. Deduplication & Data Integrity
+- Proactive duplicate detection using fuzzy matching across name, company, email, phone, and campaign.
+- Side-by-side comparison interface allows agents to select authoritative fields and execute non-destructive merges.
+
+### 5. Document Management
+- Direct attachment of briefs, RFPs, intake forms, and contracts (PDF, PNG, JPG, CSV, DOCX).
+- Enforces strict 10MB limits, MIME-type validation, and SHA-256 integrity hash verification.
+- Pluggable storage backend: local file system or Cloudflare R2 object storage.
+
+### 6. Integration & Webhooks
+- Signed inbound webhooks using HMAC-SHA256 signatures and timestamp replay attack prevention.
+- Seamless connection with Zapier, Make, Typeform, Webflow, and custom form handlers.
+- CSV import with column header detection, row validation, and duplicate conflict resolution.
+- One-click JSON workspace backup export.
+
+## Deployment Architecture
+- Dual Runtime: Runs natively on Node.js 20+ with zero external database dependencies (using built-in `node:sqlite` or pure-WASM `sql.js`), or serverless on Cloudflare Workers edge runtime with Cloudflare D1 and Cloudflare Static Assets.
+- Zero-cost starter tier: compatible with Cloudflare Pages/Workers/D1 free tiers.
+
+## Official Resources
+- Website: https://leadpulse.rajpiyush092.workers.dev/
+- GitHub: https://github.com/Warriorlegacy/leadpulse

@@ -5,7 +5,7 @@ import react from '@vitejs/plugin-react';
 // deploy sandbox which strips `dist/`/`build/` still receives a complete app.
 export default defineConfig({
   plugins: [react()],
-  publicDir: false,
+  publicDir: 'static',
   build: {
     outDir: 'public',
     emptyOutDir: true,
